@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../../firebaseConfig";
 import { collection, addDoc, getDocs, doc, deleteDoc } from "firebase/firestore";
+import AddTheCustomer from "../components/AddTheCustomer";
+import InventoryProducts from "../components/InventoryProducts";
 
 const Home = () => {
     const [purchases, setPurchases] = useState([]);
@@ -51,7 +53,7 @@ const Home = () => {
     return (
         <div className="p-5 flex flex-col items-center gap-10">
             <h1 className="text-2xl font-bold uppercase ">Plastic Factory Management</h1>
-            <div className="h-20 w-60 bg-green-400 rounded-xl flex items-center justify-center ">
+            {/* <div className="h-20 w-60 bg-green-400 rounded-xl flex items-center justify-center ">
                 <h2 className="text-xl font-bold uppercase text-white"> Current Stock:  {stock} kg</h2>
             </div>  
 
@@ -80,7 +82,9 @@ const Home = () => {
                         <button className="bg-red-500 text-white px-2 py-1 rounded" onClick={() => deleteRecord(item.id, item.totalAmount > 0 ? "purchases" : "sales", item)}>Delete</button>
                     </div>
                 ))}
-            </div>
+            </div> */}
+            <AddTheCustomer/>
+            <InventoryProducts/>
         </div>
     );
 };
