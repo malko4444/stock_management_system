@@ -60,14 +60,14 @@ const Home = () => {
             <div className="mt-5">
                 <h3 className="text-lg font-semibold">Add Purchase</h3>
                 <input type="number" placeholder="Quantity (kg)" className="border p-2" onChange={e => setPurchaseData({ ...purchaseData, quantity: e.target.value })} />
-                <input type="number" placeholder="Rate per kg ($)" className="border p-2 ml-2" onChange={e => setPurchaseData({ ...purchaseData, rate: e.target.value })} />
+                <input type="number" placeholder="Rate per kg (Rs)" className="border p-2 ml-2" onChange={e => setPurchaseData({ ...purchaseData, rate: e.target.value })} />
                 <button className="bg-blue-500 text-white px-4 py-2 ml-2" onClick={addPurchase}>Add</button>
             </div>
 
             <div className="mt-5">
                 <h3 className="text-lg font-semibold">Add Sale</h3>
                 <input type="number" placeholder="Quantity (kg)" className="border p-2" onChange={e => setSaleData({ ...saleData, quantity: e.target.value })} />
-                <input type="number" placeholder="Rate per kg ($)" className="border p-2 ml-2" onChange={e => setSaleData({ ...saleData, rate: e.target.value })} />
+                <input type="number" placeholder="Rate per kg (Rs)" className="border p-2 ml-2" onChange={e => setSaleData({ ...saleData, rate: e.target.value })} />
                 <button className="bg-green-500 text-white px-4 py-2 ml-2" onClick={addSale}>Add</button>
             </div>
 
