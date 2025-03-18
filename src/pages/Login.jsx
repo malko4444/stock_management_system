@@ -1,12 +1,20 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { auth } from "../../firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { Link, useNavigate } from "react-router-dom";
 
 function Login() {
+
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  useEffect(()=>{
+    const userId = localStorage.getItem('adminId')
+    
+    if(userId){
+      navigate("/home")
+    }
+  },[])
 
   const handleChange = (e) => {
     setFormData({
