@@ -3,6 +3,7 @@ import { db } from '../../firebaseConfig'
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore'
 import InventoryProducts from '../components/InventoryProducts'
 import { AdminDataContext } from './AdminContext'
+import { NavBar } from '../components/NavBar'
 
 function InventoryItemAdd() {
     const { updatedData, setUpdatedData } = useContext(AdminDataContext)
@@ -81,7 +82,9 @@ function InventoryItemAdd() {
     }
 
     return (
+        <><NavBar/>
         <div className="min-h-screen bg-gray-100 flex flex-col items-center py-12">
+            
             <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
                 <h2 className="text-2xl font-bold mb-6 text-center">
                     {updatedData ? 'Update Inventory Item' : 'Add Inventory Item'}
@@ -126,7 +129,7 @@ function InventoryItemAdd() {
             </div>
             <InventoryProducts ref={inventoryProductsRef} />
         </div>
-    )
+        </>)
 }
 
 export default InventoryItemAdd

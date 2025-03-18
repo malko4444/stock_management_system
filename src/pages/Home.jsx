@@ -3,6 +3,7 @@ import { db } from "../../firebaseConfig";
 import { collection, addDoc, getDocs, doc, deleteDoc } from "firebase/firestore";
 import AddTheCustomer from "../components/AddTheCustomer";
 import InventoryProducts from "../components/InventoryProducts";
+import { NavBar } from "../components/NavBar";
 
 const Home = () => {
     const [purchases, setPurchases] = useState([]);
@@ -51,7 +52,10 @@ const Home = () => {
     };
 
     return (
+        <>
+        <NavBar/>
         <div className="p-5 flex flex-col items-center gap-10">
+            
             <h1 className="text-2xl font-bold uppercase ">Plastic Factory Management</h1>
             {/* <div className="h-20 w-60 bg-green-400 rounded-xl flex items-center justify-center ">
                 <h2 className="text-xl font-bold uppercase text-white"> Current Stock:  {stock} kg</h2>
@@ -83,9 +87,10 @@ const Home = () => {
                     </div>
                 ))}
             </div> */}
+            
             <AddTheCustomer/>
             <InventoryProducts/>
-        </div>
+        </div></>
     );
 };
 

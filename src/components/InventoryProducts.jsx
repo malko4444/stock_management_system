@@ -1,22 +1,35 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { db } from "../../firebaseConfig";
-import { collection, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
 import { AdminDataContext } from '../pages/AdminContext';
 import { Link } from 'react-router';
+import { customerDataDataContext } from '../pages/CustomerContext';
 
 function InventoryProducts({ onInventoryUpdate }) {
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
     const { setUpdatedData } = useContext(AdminDataContext);
+    const { customerData, setCustomerData, customerId, setCustomerId,inventoryItem,setInventoryItem } = useContext(customerDataDataContext);
+      
+    const adminId = localStorage.getItem("adminId");
 
     const fetchInventory = async () => {
         try {
-            const querySnapshot = await getDocs(collection(db, "inventory"));
+            // Create a query to filter by adminId
+            const q = query(
+                collection(db, "inventory"), 
+                where("adminId", "==", adminId)
+            );
+            
+            const querySnapshot = await getDocs(q);
             const inventoryList = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
+            
             setInventory(inventoryList);
+            setInventoryItem(inventoryList)
+            console.log("Filtered inventory for admin: ant the", inventoryList);
             setLoading(false);
         } catch (error) {
             console.error("Error fetching inventory: ", error);

@@ -10,6 +10,7 @@ export const NavBar = () => {
                 <Link to="/deletehistory"><li className='text-white font-bold cursor-pointer '>Delete History</li></Link>
                 <Link to="/details"><li className='text-white font-bold cursor-pointer '>Customers</li></Link>
                 <Link to="/addRecord"><li className='text-white font-bold cursor-pointer '>Add customerRecord</li></Link>
+                <Link to="/inventoryItem"><li className='text-white font-bold cursor-pointer '>Item in the inventory</li></Link>
             
             </ul>
         </div>
