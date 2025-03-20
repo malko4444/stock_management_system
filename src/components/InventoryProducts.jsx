@@ -9,7 +9,7 @@ function InventoryProducts({ onInventoryUpdate }) {
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
     const { setUpdatedData } = useContext(AdminDataContext);
-    const { customerData, setCustomerData, customerId, setCustomerId,inventoryItem,setInventoryItem } = useContext(customerDataDataContext);
+    const { customerData, setCustomerData, customerId, setCustomerId, inventoryItem, setInventoryItem } = useContext(customerDataDataContext);
       
     const adminId = localStorage.getItem("adminId");
 
@@ -28,8 +28,8 @@ function InventoryProducts({ onInventoryUpdate }) {
             }));
             
             setInventory(inventoryList);
-            setInventoryItem(inventoryList)
-            console.log("Filtered inventory for admin: ant the", inventoryList);
+            setInventoryItem(inventoryList);
+            console.log("Filtered inventory for admin: ", inventoryList);
             setLoading(false);
         } catch (error) {
             console.error("Error fetching inventory: ", error);
@@ -95,10 +95,6 @@ function InventoryProducts({ onInventoryUpdate }) {
                                         <span className="font-medium">{item.quantity}</span>
                                     </div>
                                     <div className="flex justify-between text-gray-600">
-                                        <span>Price:</span>
-                                        <span className="font-medium">₹{item.price}</span>
-                                    </div>
-                                    <div className="flex justify-between text-gray-600">
                                         <span>Added:</span>
                                         <span className="font-medium">
                                             {item.createdAt?.toDate().toLocaleDateString()}
@@ -130,4 +126,3 @@ function InventoryProducts({ onInventoryUpdate }) {
 }
 
 export default InventoryProducts;
-

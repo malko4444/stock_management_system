@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react';
 import { customerDataDataContext } from '../pages/CustomerContext';
 import { db } from '../../firebaseConfig';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
-// import { toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 
 function Send() {
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -76,10 +76,14 @@ function Send() {
       setPrice('');
       setErrors({});
       
-      // toast.success('Product sent successfully!');
+      toast.success('Product sent successfully!');
+      // refresh the window with 2 sec delay
+      setTimeout(() => {
+        window.location.reload();
+        }, 3000);
     } catch (error) {
       console.error("Error:", error);
-      // toast.error('Failed to send product');
+      toast.error('Failed to send product');
     }
   };
 
@@ -98,9 +102,9 @@ function Send() {
             }`}
           >
             <option value="">Choose a product</option>
-            {inventoryItem?.map((item) => (
+            {Array.isArray(inventoryItem) && inventoryItem.map((item) => (
               <option key={item.id} value={item.id} disabled={item.quantity === 0}>
-                {item.productName} - Stock: {item.quantity} - ₹{item.price}
+                {item.productName} - Stock: {item.quantity} 
               </option>
             ))}
           </select>
@@ -140,7 +144,7 @@ function Send() {
         <input
           type="number"
           value={price}
-          readOnly
+          onChange={(e) => {setPrice(e.target.value)}}
           className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
           placeholder="Price will be set automatically"
         />
