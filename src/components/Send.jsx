@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react';
 import { customerDataDataContext } from '../pages/CustomerContext';
 import { db } from '../../firebaseConfig';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
-import { toast } from 'react-toastify';
+// import { toast } from 'react-toastify';
 
 function Send() {
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -76,10 +76,10 @@ function Send() {
       setPrice('');
       setErrors({});
       
-      toast.success('Product sent successfully!');
+      // toast.success('Product sent successfully!');
     } catch (error) {
       console.error("Error:", error);
-      toast.error('Failed to send product');
+      // toast.error('Failed to send product');
     }
   };
 
