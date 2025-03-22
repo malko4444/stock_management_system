@@ -146,7 +146,7 @@ function Send() {
           value={price}
           onChange={(e) => {setPrice(e.target.value)}}
           className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
-          placeholder="Price will be set automatically"
+          placeholder="Per Unit Price"
         />
       </div>
 
