@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { NavBar } from '../components/NavBar';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { format, subMonths, startOfYear } from 'date-fns';
+import { format, subMonths, startOfYear, parseISO } from 'date-fns';
 
 function CustomerDetails() {
     const [customers, setCustomers] = useState([]);
@@ -100,7 +100,6 @@ function CustomerDetails() {
             toast.error('Failed to generate report');
         }
     };
-
     const fetchCustomersAndRecords = async () => {
         try {
             const customerQuery = query(
@@ -239,6 +238,8 @@ function CustomerDetails() {
         }
     };
 
+    // ... keep your existing fetchCustomersAndRecords, useEffect, addRecord, deleteCustomerAndRecords, and deleteAllRecords functions ...
+
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4">
             <NavBar />
@@ -258,30 +259,13 @@ function CustomerDetails() {
                     </button>
                 </div>
 
-                {isDeleting && (
-                    <div className="text-center py-4">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-                        <p className="mt-2 text-gray-600">Deleting all records...</p>
-                    </div>
-                )}
+                {/* ... keep your existing isDeleting indicator ... */}
 
                 <div className="space-y-8">
                     {customers.map(customer => (
                         <div key={customer.id} className="bg-white rounded-lg shadow-lg p-6">
                             <div className="flex justify-between items-center mb-6">
-                                <div>
-                                    <h3 className="text-2xl font-semibold text-gray-800">
-                                        {customer.name}
-                                    </h3>
-                                    <p className="text-gray-600">{customer.phone}</p>
-                                    <div className="mt-2">
-                                        <span className={`text-lg font-medium ${
-                                            customerBalances[customer.id] > 0 ? 'text-red-600' : 'text-green-600'
-                                        }`}>
-                                            Current Balance: Rs {customerBalances[customer.id] || 0}
-                                        </span>
-                                    </div>
-                                </div>
+                                {/* ... keep your existing customer header ... */}
                                 <div className="flex items-center space-x-4">
                                     <select 
                                         value={filterPeriod}
@@ -322,75 +306,16 @@ function CustomerDetails() {
                             {customerRecords[customer.id]?.length > 0 ? (
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                    Date
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                    Type
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                    Details
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                    Payment Method
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                    Amount
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                    Running Balance
-                                                </th>
-                                            </tr>
-                                        </thead>
+                                        {/* ... keep your existing table headers ... */}
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {filterRecords(customerRecords[customer.id], filterPeriod)
                                                 .sort((a, b) => b.created_at?.toDate() - a.created_at?.toDate())
                                                 .map((record, index, array) => {
-                                                    const runningBalance = calculateRunningBalance(
-                                                        array.slice().reverse(),
-                                                        array.length - 1 - index
-                                                    );
+                                                    const runningBalance = calculateRunningBalance(array.slice().reverse(), array.length - 1 - index);
                                                     
                                                     return (
                                                         <tr key={record.id}>
-                                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                                {format(record.created_at.toDate(), 'dd/MM/yyyy')}
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                                    record.type === 'send'
-                                                                        ? 'bg-red-100 text-red-800'
-                                                                        : 'bg-green-100 text-green-800'
-                                                                }`}>
-                                                                    {record.type === 'send' ? 'Product Sent' : 'Payment Received'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                                {record.type === 'send'
-                                                                    ? `${record.product_name} x ${record.quantity}`
-                                                                    : 'Payment'
-                                                                }
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                                {record.type === 'receive' ? (
-                                                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                                        record.payment_method === 'cash'
-                                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                                            : record.payment_method === 'jazzcash'
-                                                                                ? 'bg-purple-100 text-purple-800'
-                                                                                : record.payment_method === 'easypaisa'
-                                                                                    ? 'bg-blue-100 text-blue-800'
-                                                                                    : 'bg-gray-100 text-gray-800'
-                                                                    }`}>
-                                                                        {record.payment_method?.toUpperCase() || 'N/A'}
-                                                                    </span>
-                                                                ) : '-'}
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                                Rs {record.type === 'send' ? record.total_amount : record.amount}
-                                                            </td>
+                                                            {/* ... keep your existing row cells ... */}
                                                             <td className="px-6 py-4 whitespace-nowrap">
                                                                 <span className={`${runningBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                                                     Rs {runningBalance}
