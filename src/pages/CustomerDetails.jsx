@@ -68,8 +68,10 @@ function CustomerDetails() {
             const { autoTable } = await import('jspdf-autotable');
             
             const doc = new jsPDF();
-            const filteredRecords = filterRecords(records, filterPeriod);
-
+            // First filter and sort the records to match table sequence
+            const filteredRecords = filterRecords(records, filterPeriod)
+                .sort((a, b) => b.created_at?.toDate() - a.created_at?.toDate());
+    
             // Add header
             doc.setFontSize(18);
             doc.text(`Customer Report - ${customer.name}`, 14, 15);
@@ -77,22 +79,43 @@ function CustomerDetails() {
             doc.text(`Generated on: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 25);
             doc.text(`Phone: ${customer.phone}`, 14, 35);
             doc.text(`Balance: Rs ${customerBalances[customer.id] || 0}`, 14, 45);
-
-            const tableData = filteredRecords.map((record, index) => [
-                format(record.created_at.toDate(), 'dd/MM/yyyy'),
-                record.type === 'send' ? 'Product Sent' : 'Payment Received',
-                record.type === 'send' ? `${record.product_name} x ${record.quantity}` : 'Payment',
-                record.type === 'receive' ? record.payment_method?.toUpperCase() : '-',
-                `Rs ${record.type === 'send' ? record.total_amount : record.amount}`,
-                `Rs ${calculateRunningBalance(filteredRecords, index)}`
-            ]);
-
+    
+            // Generate table data with the same sequence as the table
+            const tableData = filteredRecords.map((record, index) => {
+                const runningBalance = calculateRunningBalance(
+                    filteredRecords.slice().reverse(),
+                    filteredRecords.length - 1 - index
+                );
+    
+                return [
+                    format(record.created_at.toDate(), 'dd/MM/yyyy'),
+                    record.type === 'send' ? 'Product Sent' : 'Payment Received',
+                    record.type === 'send' ? `${record.product_name} x ${record.quantity}` : 'Payment',
+                    record.type === 'receive' ? record.payment_method?.toUpperCase() : '-',
+                    `Rs ${record.type === 'send' ? record.total_amount : record.amount}`,
+                    `Rs ${runningBalance}`
+                ];
+            });
+    
+            // Add table to PDF
             autoTable(doc, {
                 head: [['Date', 'Type', 'Details', 'Payment Method', 'Amount', 'Balance']],
                 body: tableData,
-                startY: 55
+                startY: 55,
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 3
+                },
+                columnStyles: {
+                    0: { cellWidth: 25 }, // Date
+                    1: { cellWidth: 25 }, // Type
+                    2: { cellWidth: 40 }, // Details
+                    3: { cellWidth: 30 }, // Payment Method
+                    4: { cellWidth: 25 }, // Amount
+                    5: { cellWidth: 25 }  // Balance
+                }
             });
-
+    
             doc.save(`${customer.name}_report_${format(new Date(), 'dd-MM-yyyy')}.pdf`);
             toast.success('Report downloaded successfully!');
         } catch (error) {
