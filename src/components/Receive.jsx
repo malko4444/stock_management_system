@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { customerDataDataContext } from '../pages/CustomerContext';
-import { customerRecordsApi } from '../services/firebaseApi';
+import { customerRecordsApi, accountReceivableApi, accountPayableApi } from '../services/firebaseApi';
+import { FinancialContext } from '../contexts/FinancialContext';
 import { toast } from 'react-toastify';
 
 function Receive() {
@@ -9,6 +10,7 @@ function Receive() {
   const [totalBalance, setTotalBalance] = useState(0);
   const [errors, setErrors] = useState({});
   const { customerId } = useContext(customerDataDataContext);
+  const { applyPayment } = React.useContext(FinancialContext);
   const adminId = localStorage.getItem("adminId");
 
   useEffect(() => {
@@ -61,6 +63,20 @@ function Receive() {
         previous_balance: totalBalance,
         remaining_balance: totalBalance - Number(receivedAmount),
       });
+
+      // Apply payment to receivables (FIFO). If remainder, create a payable as customer credit
+      const remainder = await applyPayment(adminId, customerId, Number(receivedAmount));
+      if (remainder > 0) {
+        await accountPayableApi.add({
+          admin_id: adminId,
+          payee_id: customerId,
+          payee: null,
+          description: 'Overpayment - customer credit',
+          amount: Number(remainder),
+          status: 'pending',
+          created_at: new Date(),
+        });
+      }
       
       setTotalBalance(prev => prev - Number(receivedAmount));
       setReceivedAmount('');

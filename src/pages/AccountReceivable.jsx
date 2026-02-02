@@ -25,6 +25,21 @@ export default function AccountReceivable({ embedded = false }) {
     }
   };
 
+  const agingBuckets = (items) => {
+    const now = new Date();
+    const buckets = { '0-30': 0, '31-60': 0, '60+': 0 };
+    for (const r of items) {
+      const d = r.created_at?.toDate ? r.created_at.toDate() : r.created_at || new Date();
+      const days = Math.floor((now - new Date(d)) / (1000 * 60 * 60 * 24));
+      const amt = Number(r.amount) || 0;
+      if (r.status !== 'pending') continue; // only pending counts toward aging
+      if (days <= 30) buckets['0-30'] += amt;
+      else if (days <= 60) buckets['31-60'] += amt;
+      else buckets['60+'] += amt;
+    }
+    return buckets;
+  };
+
   useEffect(() => { fetchList(); }, [adminId]);
 
   const openAdd = () => {
@@ -84,11 +99,25 @@ export default function AccountReceivable({ embedded = false }) {
   return (
     <div className={embedded ? "min-h-0" : "min-h-screen bg-gray-50 py-8 px-4"}>
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <h2 className="text-2xl font-bold text-[#108587]">Account Receivable</h2>
-          <button onClick={openAdd} className="flex items-center gap-2 bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274]">
-            <Plus size={18} /> Add Receivable
-          </button>
+          <div className="flex gap-3 items-center">
+            <div className="bg-white p-3 rounded shadow text-sm">
+              <div className="text-xs text-gray-500">0-30 days</div>
+              <div className="text-lg font-semibold">Rs {agingBuckets(list)['0-30']?.toLocaleString('en-PK') || 0}</div>
+            </div>
+            <div className="bg-white p-3 rounded shadow text-sm">
+              <div className="text-xs text-gray-500">31-60 days</div>
+              <div className="text-lg font-semibold">Rs {agingBuckets(list)['31-60']?.toLocaleString('en-PK') || 0}</div>
+            </div>
+            <div className="bg-white p-3 rounded shadow text-sm">
+              <div className="text-xs text-gray-500">60+ days</div>
+              <div className="text-lg font-semibold">Rs {agingBuckets(list)['60+']?.toLocaleString('en-PK') || 0}</div>
+            </div>
+            <button onClick={openAdd} className="flex items-center gap-2 bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274]">
+              <Plus size={18} /> Add Receivable
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -115,7 +144,7 @@ export default function AccountReceivable({ embedded = false }) {
                   return (
                     <tr key={row.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-900">{row.customer_name}</td>
-                      <td className="px-4 py-3 font-medium">Rs {Number(row.amount).toLocaleString()}</td>
+                      <td className="px-4 py-3 font-medium">Rs {Number(row.amount).toLocaleString('en-PK')}</td>
                       <td className="px-4 py-3 text-gray-600">{d ? format(new Date(d), "dd/MM/yyyy") : "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded text-xs ${row.status === "paid" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{row.status}</span>

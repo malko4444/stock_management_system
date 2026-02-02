@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from "react";
 import { customersApi, customerRecordsApi, deletedRecordsApi } from "../services/firebaseApi";
+import { FinancialContext } from '../contexts/FinancialContext';
 import { customerDataDataContext } from "./CustomerContext";
 import AddRecordModal from "../components/AddRecordModal";
 import { toast } from "react-toastify";
@@ -87,7 +88,7 @@ function CustomerDetails({ embedded = false }) {
       doc.setFontSize(12);
       doc.text(`Generated on: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 25);
       doc.text(`Phone: ${customer.phone}`, 14, 35);
-      doc.text(`Balance: Rs ${customerBalances[customer.id] || 0}`, 14, 45);
+      doc.text(`Balance: Rs ${(customerBalances[customer.id] || 0).toLocaleString('en-PK')}`, 14, 45);
       const tableData = filteredRecords.map((record, index) => {
         const runningBalance = calculateRunningBalance(filteredRecords.slice().reverse(), filteredRecords.length - 1 - index);
         return [
@@ -95,8 +96,8 @@ function CustomerDetails({ embedded = false }) {
           record.type === "send" ? "Product Sent" : "Payment Received",
           record.type === "send" ? `${record.product_name} x ${record.quantity}` : "Payment",
           record.type === "receive" ? (record.payment_method || "").toUpperCase() : "-",
-          `Rs ${record.type === "send" ? record.total_amount : record.amount}`,
-          `Rs ${runningBalance}`,
+          `Rs ${record.type === "send" ? Number(record.total_amount || 0).toLocaleString('en-PK') : Number(record.amount || 0).toLocaleString('en-PK')}`,
+          `Rs ${Number(runningBalance || 0).toLocaleString('en-PK')}`,
         ];
       });
       autoTable(doc, {
@@ -156,12 +157,20 @@ function CustomerDetails({ embedded = false }) {
     else toast.info("Select a customer first");
   };
 
+  const financial = React.useContext(FinancialContext);
+
   const deleteCustomerAndRecords = async (customerIdToDelete) => {
     try {
       const isConfirmed = window.confirm("Are you sure you want to delete this customer and all their records? This action cannot be undone.");
       if (!isConfirmed) return;
       const customer = customers.find((c) => c.id === customerIdToDelete);
       const records = customerRecords[customerIdToDelete] || [];
+      // Void receivables associated with this customer (audit + data integrity)
+      try {
+        await financial.voidReceivablesForCustomer({ admin_id: adminId, customer_id: customerIdToDelete, reason: 'Customer deleted with records' });
+      } catch (e) {
+        console.error('Failed to void receivables before deleting customer:', e);
+      }
       await deletedRecordsApi.add({ type: "customer_with_records", admin_id: adminId, customerName: customer?.name, recordCount: records.length });
       await customerRecordsApi.deleteByCustomer(customerIdToDelete, adminId);
       await customersApi.delete(customerIdToDelete);
@@ -317,10 +326,10 @@ function CustomerDetails({ embedded = false }) {
                               {record.type === "receive" ? (record.payment_method || "—").toUpperCase() : "—"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {record.type === "send" ? record.total_amount : record.amount}
+                              Rs {Number(record.type === "send" ? record.total_amount : record.amount).toLocaleString('en-PK')}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                              <span className={runningBalance > 0 ? "text-red-600" : "text-green-600"}>{runningBalance}</span>
+                              <span className={runningBalance > 0 ? "text-red-600" : "text-green-600"}>Rs {Number(runningBalance || 0).toLocaleString('en-PK')}</span>
                             </td>
                           </tr>
                         );

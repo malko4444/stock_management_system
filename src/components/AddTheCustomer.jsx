@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { customersApi, deletedRecordsApi } from '../services/firebaseApi';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { customersApi, deletedRecordsApi, accountReceivableApi } from '../services/firebaseApi';
+import { FinancialContext } from '../contexts/FinancialContext';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
 
 const CustomerFormFields = ({ formData, errors, handleInputChange }) => (
@@ -274,6 +275,7 @@ function AddTheCustomer({ searchTerm = '' }) {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [customerToDelete, setCustomerToDelete] = useState(null);
     const adminId = localStorage.getItem("adminId");
+    const FinancialCtx = useContext(FinancialContext);
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -368,6 +370,10 @@ function AddTheCustomer({ searchTerm = '' }) {
                 showToast("Customer added successfully");
             } else {
                 await customersApi.update(currentCustomerId, customerData);
+                // sync name across receivables
+                try {
+                    await FinancialCtx.syncCustomerName({ admin_id: adminId, customer_id: currentCustomerId, customer_name: customerData.name });
+                } catch (e) {}
                 showToast("Customer updated successfully");
             }
             resetForm();
@@ -397,6 +403,15 @@ function AddTheCustomer({ searchTerm = '' }) {
     const handleDeleteConfirm = useCallback(async () => {
         if (!customerToDelete) return;
         try {
+            // Prevent deletion if there are pending receivables
+            const recs = await accountReceivableApi.getByCustomerAndAdmin(adminId, customerToDelete.id);
+            const pendingSum = (recs || []).filter(r => r.status === 'pending').reduce((s, r) => s + (Number(r.amount) || 0), 0);
+            if (pendingSum > 0) {
+                showToast("Cannot delete customer with outstanding receivables. Please clear receivables first.");
+                setShowDeleteModal(false);
+                return;
+            }
+
             await deletedRecordsApi.add({
                 type: 'customer',
                 admin_id: adminId,
@@ -408,6 +423,7 @@ function AddTheCustomer({ searchTerm = '' }) {
             showToast("Customer deleted successfully");
         } catch (error) {
             console.error("Error deleting customer: ", error);
+            showToast("Error deleting customer");
         }
         setShowDeleteModal(false);
     }, [customerToDelete, adminId, fetchCustomers]);

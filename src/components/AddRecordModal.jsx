@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import { customerDataDataContext } from "../pages/CustomerContext";
-import { customerRecordsApi, inventoryApi } from "../services/firebaseApi";
+import { customerRecordsApi, inventoryApi, accountReceivableApi, accountPayableApi } from "../services/firebaseApi";
 import { toast } from "react-toastify";
 import { X } from "lucide-react";
 import { format } from "date-fns";
@@ -111,6 +111,20 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
           type: "send",
         });
         await inventoryApi.updateQuantity(selectedProduct, selectedProductData.quantity - qty);
+        // Create a matching receivable (pending) so Account Receivable stays in sync
+        try {
+          await accountReceivableApi.add({
+            admin_id: adminId,
+            customer_id: customerId,
+            customer_name: customerName,
+            description: `Product sent: ${selectedProductData.productName}`,
+            amount: total,
+            status: "pending",
+            created_at,
+          });
+        } catch (e) {
+          console.error("Failed to create receivable entry:", e);
+        }
         toast.success("Product sent successfully!");
       } else {
         if (!validateReceive()) {
@@ -127,6 +141,23 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
           previous_balance: currentBalance,
           remaining_balance: remainingBalance,
         });
+        // Apply payment to pending receivables. If surplus remains, register a payable (customer credit)
+        try {
+          const remainder = await accountReceivableApi.applyPayment(adminId, customerId, Number(paymentAmount));
+          if (remainder > 0) {
+            await accountPayableApi.add({
+              admin_id: adminId,
+              payee_id: customerId,
+              payee: customerName,
+              description: "Overpayment / Customer Credit",
+              amount: Number(remainder),
+              status: "pending",
+              created_at,
+            });
+          }
+        } catch (e) {
+          console.error("Failed to apply payment:", e);
+        }
         toast.success("Payment recorded successfully!");
       }
       onSuccess?.();

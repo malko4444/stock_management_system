@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { accountPayableApi } from "../services/firebaseApi";
+import React, { useState, useEffect, useContext } from "react";
+import { accountPayableApi, inventoryApi } from "../services/firebaseApi";
+import { AdminDataContext } from './AdminContext';
 import { toast } from "react-toastify";
 import { Plus, X, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -12,6 +13,8 @@ export default function AccountPayable({ embedded = false }) {
   const [form, setForm] = useState({ vendor: "", amount: "", description: "", due_date: "", status: "pending" });
   const adminId = localStorage.getItem("adminId");
 
+  const adminCtx = useContext(AdminDataContext);
+
   const fetchList = async () => {
     if (!adminId) return;
     try {
@@ -22,6 +25,24 @@ export default function AccountPayable({ embedded = false }) {
       toast.error("Failed to load payables");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const viewInventoryBatch = async (inventoryId) => {
+    if (!inventoryId) return;
+    try {
+      const item = await inventoryApi.getById(inventoryId);
+      if (item) {
+        // set data so Inventory page can open the batch for edit
+        adminCtx.setUpdatedData(item);
+        // navigate Home to inventory-item using a custom event (Home listens for it)
+        window.dispatchEvent(new CustomEvent('navigateTo', { detail: { component: 'inventory-item' } }));
+      } else {
+        toast.info('Inventory batch not found');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to fetch inventory batch');
     }
   };
 
@@ -45,6 +66,31 @@ export default function AccountPayable({ embedded = false }) {
     });
     setShowModal(true);
   };
+
+  const applyPartialPayment = async (row) => {
+    const amtStr = window.prompt('Enter payment amount (Rs)', String(row.amount || ''));
+    if (!amtStr) return;
+    const paid = Number(amtStr);
+    if (Number.isNaN(paid) || paid <= 0) {
+      toast.error('Invalid amount');
+      return;
+    }
+    try {
+      const remaining = (Number(row.amount) || 0) - paid;
+      if (remaining <= 0) {
+        // fully paid
+        await accountPayableApi.update(row.id, { amount: 0, status: 'paid', paid_at: new Date() });
+      } else {
+        await accountPayableApi.update(row.id, { amount: remaining, status: 'paid-partial' });
+      }
+      toast.success('Payment applied');
+      fetchList();
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to apply payment');
+    }
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -115,14 +161,20 @@ export default function AccountPayable({ embedded = false }) {
                   return (
                     <tr key={row.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-900">{row.vendor}</td>
-                      <td className="px-4 py-3 font-medium">Rs {Number(row.amount).toLocaleString()}</td>
+                      <td className="px-4 py-3 font-medium">Rs {Number(row.amount).toLocaleString('en-PK')}</td>
                       <td className="px-4 py-3 text-gray-600">{d ? format(new Date(d), "dd/MM/yyyy") : "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded text-xs ${row.status === "paid" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{row.status}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => openEdit(row)} className="p-1.5 text-[#108587] hover:bg-[#E8F8F9] rounded"><Pencil size={16} /></button>
-                        <button onClick={() => handleDelete(row.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                        <div className="flex items-center justify-end gap-2">
+                          {row.inventory_id && (
+                            <button onClick={() => viewInventoryBatch(row.inventory_id)} className="px-3 py-1 text-sm bg-[#E8F8F9] rounded text-[#108587]">View Batch</button>
+                          )}
+                          <button onClick={() => applyPartialPayment(row)} className="px-3 py-1 text-sm bg-[#E8F8F9] rounded text-[#108587]">Apply Payment</button>
+                          <button onClick={() => openEdit(row)} className="p-1.5 text-[#108587] hover:bg-[#E8F8F9] rounded"><Pencil size={16} /></button>
+                          <button onClick={() => handleDelete(row.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                        </div>
                       </td>
                     </tr>
                   );

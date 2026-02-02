@@ -5,14 +5,15 @@ import './index.css'
 import { App } from './App';
 import CustomerContext from './pages/CustomerContext';
 import AdminContext from './pages/AdminContext';
-// import App from './App.jsx'
+import FinancialProvider from './contexts/FinancialContext';
 
 createRoot(document.getElementById('root')).render(
   
   <AdminContext>
-    <CustomerContext>
-    <App />
-  </CustomerContext>
-
+    <FinancialProvider>
+      <CustomerContext>
+        <App />
+      </CustomerContext>
+    </FinancialProvider>
   </AdminContext>
 )

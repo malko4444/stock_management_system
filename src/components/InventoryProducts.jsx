@@ -158,7 +158,7 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                     />
                     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
                         <div
-                            className="w-[415px] h-[437px] mx-auto px-6 pt-13 border border-gray-300 rounded-lg shadow-xl bg-white pointer-events-auto"
+                            className="w-full max-w-md mx-auto px-6 pt-13 border border-gray-300 rounded-lg shadow-xl bg-white pointer-events-auto"
                         >
                             <h3 className="text-2xl items-center font-semibold mb-8 flex gap-2 text-[#108587]">
                                 {newItem.id ? (
@@ -197,7 +197,7 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
                                 className="w-full p-3 mb-6 border border-gray-300 rounded-md"
                             />
-                            <div className="flex justify-end space-x-3 mt-4">
+                            <div className="flex justify-end space-x-3 my-4">
                                 <button
                                     onClick={() => {
                                         setShowForm(false);
