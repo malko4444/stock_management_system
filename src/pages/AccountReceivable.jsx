@@ -40,7 +40,25 @@ export default function AccountReceivable({ embedded = false }) {
     return buckets;
   };
 
-  useEffect(() => { fetchList(); }, [adminId]);
+  useEffect(() => {
+    if (!adminId) return;
+    setLoading(true);
+    const unsub = accountReceivableApi.listenByAdmin(adminId, (items) => {
+      console.debug('accountReceivable snapshot received, count=', items?.length);
+      setList(items || []);
+      setLoading(false);
+    });
+    // Also listen to global financialChange events to ensure other flows trigger refresh
+    const handler = (e) => {
+      // Force refresh as a reliable fallback
+      fetchList().catch((err) => console.error('Failed to refresh receivables after financialChange', err));
+    };
+    window.addEventListener('financialChange', handler);
+    return () => {
+      unsub && unsub();
+      window.removeEventListener('financialChange', handler);
+    };
+  }, [adminId]);
 
   const openAdd = () => {
     setEditing(null);
@@ -63,12 +81,22 @@ export default function AccountReceivable({ embedded = false }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.customer_name?.trim() || !form.amount) {
-      toast.error("Customer name and amount are required");
+    if (!adminId) {
+      toast.error("Not logged in");
       return;
     }
+    if (!form.customer_name?.trim()) {
+      toast.error("Customer name is required");
+      return;
+    }
+    const amt = Number(form.amount);
+    if (!form.amount || isNaN(amt) || amt <= 0) {
+      toast.error("Amount must be a positive number");
+      return;
+    }
+
     try {
-      const payload = { admin_id: adminId, customer_name: form.customer_name.trim(), amount: Number(form.amount), description: form.description?.trim() || "", status: form.status };
+      const payload = { admin_id: adminId, customer_name: form.customer_name.trim(), amount: amt, description: form.description?.trim() || "", status: form.status };
       if (form.due_date) payload.due_date = new Date(form.due_date);
       if (editing) {
         await accountReceivableApi.update(editing.id, payload);
@@ -80,8 +108,9 @@ export default function AccountReceivable({ embedded = false }) {
       setShowModal(false);
       fetchList();
     } catch (err) {
-      console.error(err);
-      toast.error(editing ? "Update failed" : "Add failed");
+      console.error('Failed to add/update receivable:', err);
+      const message = err?.message || (editing ? "Update failed" : "Add failed");
+      toast.error(message);
     }
   };
 
@@ -114,7 +143,7 @@ export default function AccountReceivable({ embedded = false }) {
               <div className="text-xs text-gray-500">60+ days</div>
               <div className="text-lg font-semibold">Rs {agingBuckets(list)['60+']?.toLocaleString('en-PK') || 0}</div>
             </div>
-            <button onClick={openAdd} className="flex items-center gap-2 bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274]">
+            <button onClick={openAdd} className="flex items-center gap-2 cursor-pointer bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274]">
               <Plus size={18} /> Add Receivable
             </button>
           </div>
@@ -141,17 +170,19 @@ export default function AccountReceivable({ embedded = false }) {
               <tbody className="divide-y divide-gray-200">
                 {list.map((row) => {
                   const d = row.due_date?.toDate ? row.due_date.toDate() : row.due_date;
+                  const original = Number(row.original_amount ?? row.amount ?? 0);
+                  const paidDate = row.paid_at?.toDate ? row.paid_at.toDate() : row.paid_at;
                   return (
                     <tr key={row.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-900">{row.customer_name}</td>
-                      <td className="px-4 py-3 font-medium">Rs {Number(row.amount).toLocaleString('en-PK')}</td>
-                      <td className="px-4 py-3 text-gray-600">{d ? format(new Date(d), "dd/MM/yyyy") : "-"}</td>
+                      <td className="px-4 py-3 font-medium">{row.status === "paid" ? `Rs ${original.toLocaleString('en-PK')}` : `Rs ${Number(row.amount).toLocaleString('en-PK')}`}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.status === "paid" ? (paidDate ? `Paid on ${format(new Date(paidDate), "dd/MM/yyyy")}` : "Paid") : (d ? format(new Date(d), "dd/MM/yyyy") : "-")}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded text-xs ${row.status === "paid" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{row.status}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => openEdit(row)} className="p-1.5 text-[#108587] hover:bg-[#E8F8F9] rounded"><Pencil size={16} /></button>
-                        <button onClick={() => handleDelete(row.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                        <button onClick={() => openEdit(row)} className="p-1.5 text-[#108587] hover:bg-[#E8F8F9] rounded cursor-pointer"><Pencil size={16} /></button>
+                        <button onClick={() => handleDelete(row.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded cursor-pointer"><Trash2 size={16} /></button>
                       </td>
                     </tr>
                   );
@@ -169,7 +200,7 @@ export default function AccountReceivable({ embedded = false }) {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-[#108587]">{editing ? "Edit" : "Add"} Receivable</h3>
-                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
+                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700 cursor-pointer"><X size={20} /></button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
@@ -196,8 +227,8 @@ export default function AccountReceivable({ embedded = false }) {
                   </select>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-[#108587] text-white rounded hover:bg-[#0e7274]">Save</button>
+                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-[#108587] text-white rounded hover:bg-[#0e7274] cursor-pointer">Save</button>
                 </div>
               </form>
             </div>

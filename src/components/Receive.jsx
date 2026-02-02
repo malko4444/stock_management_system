@@ -163,7 +163,7 @@ function Receive() {
       <button
         onClick={handleReceivePayment}
         disabled={!receivedAmount || !paymentMethod}
-        className="w-full px-4 py-3 text-white bg-green-600 rounded-lg hover:bg-green-700 
+        className="w-full px-4 py-3 text-white bg-green-600 rounded-lg hover:bg-green-700 cursor-pointer
                  focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >

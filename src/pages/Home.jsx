@@ -40,12 +40,18 @@ const Home = () => {
     };
     fetchDashboard();
 
-    const handler = (e) => {
+    const handlerNav = (e) => {
       const component = e?.detail?.component;
       if (component) setActiveComponent(component);
     };
-    window.addEventListener('navigateTo', handler);
-    return () => window.removeEventListener('navigateTo', handler);
+    const handlerFinancial = () => { fetchDashboard(); };
+
+    window.addEventListener('navigateTo', handlerNav);
+    window.addEventListener('financialChange', handlerFinancial);
+    return () => {
+      window.removeEventListener('navigateTo', handlerNav);
+      window.removeEventListener('financialChange', handlerFinancial);
+    };
   }, []);
 
   const renderContent = () => {
@@ -75,7 +81,7 @@ const Home = () => {
   };
 
   return (
-    <main className="flex h-screen max-w-[1600px] mx-auto overflow-hidden bg-gray-50">
+    <main className="flex h-screen max-w-screen-2xl mx-auto overflow-hidden bg-gray-50">
       <Sidebar activeComponent={activeComponent} setActiveComponent={setActiveComponent} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

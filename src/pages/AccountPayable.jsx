@@ -46,7 +46,25 @@ export default function AccountPayable({ embedded = false }) {
     }
   };
 
-  useEffect(() => { fetchList(); }, [adminId]);
+  useEffect(() => {
+    if (!adminId) return;
+    setLoading(true);
+    const unsub = accountPayableApi.listenByAdmin(adminId, (items) => {
+      console.debug('accountPayable snapshot received, count=', items?.length);
+      setList(items || []);
+      setLoading(false);
+    });
+    const handler = (e) => {
+      // Some updates may be triggered via global events (financialChange).
+      // Force a fetch as a fallback to ensure UI updates immediately.
+      fetchList().catch((err) => console.error('Failed to refresh payables after financialChange', err));
+    };
+    window.addEventListener('financialChange', handler);
+    return () => {
+      unsub && unsub();
+      window.removeEventListener('financialChange', handler);
+    };
+  }, [adminId]);
 
   const openAdd = () => {
     setEditing(null);
@@ -68,23 +86,29 @@ export default function AccountPayable({ embedded = false }) {
   };
 
   const applyPartialPayment = async (row) => {
-    const amtStr = window.prompt('Enter payment amount (Rs)', String(row.amount || ''));
+    const amtStr = window.prompt('Enter payment amount (Rs)', '');
     if (!amtStr) return;
     const paid = Number(amtStr);
     if (Number.isNaN(paid) || paid <= 0) {
       toast.error('Invalid amount');
       return;
     }
+
     try {
-      const remaining = (Number(row.amount) || 0) - paid;
-      if (remaining <= 0) {
-        // fully paid
-        await accountPayableApi.update(row.id, { amount: 0, status: 'paid', paid_at: new Date() });
-      } else {
-        await accountPayableApi.update(row.id, { amount: remaining, status: 'paid-partial' });
-      }
+      const original = Number(row.original_amount ?? (row.paid_amount != null ? Number(row.amount || 0) + Number(row.paid_amount || 0) : Number(row.amount || 0)));
+      const prevPaid = Number(row.paid_amount ?? Math.max(0, original - Number(row.amount ?? 0)));
+      const newPaid = prevPaid + paid;
+      const remaining = Math.max(0, original - newPaid);
+      const newStatus = remaining <= 0 ? 'paid' : 'paid-partial';
+
+      const updatePayload = { amount: remaining, paid_amount: newPaid, status: newStatus };
+      if (newStatus === 'paid') updatePayload.paid_at = new Date();
+
+      await accountPayableApi.update(row.id, updatePayload);
+      // Ensure UI and dashboard update immediately even if API events were modified
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'payable', action: 'update', id: row.id } }));
       toast.success('Payment applied');
-      fetchList();
+      // real-time listener will refresh the list and dashboard
     } catch (e) {
       console.error(e);
       toast.error('Failed to apply payment');
@@ -102,14 +126,17 @@ export default function AccountPayable({ embedded = false }) {
       const payload = { admin_id: adminId, vendor: form.vendor.trim(), amount: Number(form.amount), description: form.description?.trim() || "", status: form.status };
       if (form.due_date) payload.due_date = new Date(form.due_date);
       if (editing) {
-        await accountPayableApi.update(editing.id, payload);
+        // Ensure original_amount exists for older records when editing
+        const updatePayload = { ...payload };
+        if (editing.original_amount == null) updatePayload.original_amount = Number(payload.amount);
+        await accountPayableApi.update(editing.id, updatePayload);
         toast.success("Payable updated");
       } else {
-        await accountPayableApi.add({ ...payload, created_at: new Date() });
+        await accountPayableApi.add({ ...payload, original_amount: Number(payload.amount), paid_amount: 0, created_at: new Date() });
         toast.success("Payable added");
       }
       setShowModal(false);
-      fetchList();
+      // no manual fetch needed; real-time listener will update the list
     } catch (err) {
       console.error(err);
       toast.error(editing ? "Update failed" : "Add failed");
@@ -132,7 +159,7 @@ export default function AccountPayable({ embedded = false }) {
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold text-[#108587]">Account Payable</h2>
-          <button onClick={openAdd} className="flex items-center gap-2 bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274]">
+          <button onClick={openAdd} className="flex items-center gap-2 cursor-pointer bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274]">
             <Plus size={18} /> Add Payable
           </button>
         </div>
@@ -149,7 +176,8 @@ export default function AccountPayable({ embedded = false }) {
               <thead className="bg-[#E8F8F9]">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase">Vendor</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase">Payable</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase">Paid</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase">Due Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase">Status</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-[#108587] uppercase">Actions</th>
@@ -158,10 +186,15 @@ export default function AccountPayable({ embedded = false }) {
               <tbody className="divide-y divide-gray-200">
                 {list.map((row) => {
                   const d = row.due_date?.toDate ? row.due_date.toDate() : row.due_date;
+                  // Backwards compatibility: if original_amount is missing, infer original
+                  const original = Number(row.original_amount ?? (row.paid_amount != null ? Number(row.amount || 0) + Number(row.paid_amount || 0) : Number(row.amount || 0)));
+                  const paid = Number(row.paid_amount ?? Math.max(0, original - Number(row.amount ?? 0)));
+                  const payable = Number(row.amount ?? Math.max(0, original - paid));
                   return (
                     <tr key={row.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-900">{row.vendor}</td>
-                      <td className="px-4 py-3 font-medium">Rs {Number(row.amount).toLocaleString('en-PK')}</td>
+                      <td className="px-4 py-3 font-medium">Rs {Number(payable).toLocaleString('en-PK')}</td>
+                      <td className="px-4 py-3 font-medium">Rs {Number(paid).toLocaleString('en-PK')}</td>
                       <td className="px-4 py-3 text-gray-600">{d ? format(new Date(d), "dd/MM/yyyy") : "-"}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded text-xs ${row.status === "paid" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{row.status}</span>
@@ -169,11 +202,11 @@ export default function AccountPayable({ embedded = false }) {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {row.inventory_id && (
-                            <button onClick={() => viewInventoryBatch(row.inventory_id)} className="px-3 py-1 text-sm bg-[#E8F8F9] rounded text-[#108587]">View Batch</button>
+                            <button onClick={() => viewInventoryBatch(row.inventory_id)} className="px-3 py-1 text-sm cursor-pointer bg-[#E8F8F9] rounded text-[#108587]">View Batch</button>
                           )}
-                          <button onClick={() => applyPartialPayment(row)} className="px-3 py-1 text-sm bg-[#E8F8F9] rounded text-[#108587]">Apply Payment</button>
-                          <button onClick={() => openEdit(row)} className="p-1.5 text-[#108587] hover:bg-[#E8F8F9] rounded"><Pencil size={16} /></button>
-                          <button onClick={() => handleDelete(row.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                          <button onClick={() => applyPartialPayment(row)} className="px-3 py-1 text-sm cursor-pointer bg-[#E8F8F9] rounded text-[#108587]">Apply Payment</button>
+                          <button onClick={() => openEdit(row)} className="p-1.5 text-[#108587] hover:bg-[#E8F8F9] rounded cursor-pointer"><Pencil size={16} /></button>
+                          <button onClick={() => handleDelete(row.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded cursor-pointer"><Trash2 size={16} /></button>
                         </div>
                       </td>
                     </tr>
@@ -181,6 +214,11 @@ export default function AccountPayable({ embedded = false }) {
                 })}
               </tbody>
             </table>
+            {/* Totals row (computed robustly using remaining fallbacks) */}
+            <div className="bg-white pr-4 py-3 flex justify-end gap-6">
+              <div className="text-sm text-gray-600">Total Payable: <span className="font-semibold text-gray-900">Rs {list.reduce((s, r) => s + Math.max(0, Number(r.amount ?? (Number(r.original_amount || 0) - Number(r.paid_amount || 0)))), 0).toLocaleString('en-PK')}</span></div>
+              <div className="text-sm text-gray-600">Total Paid: <span className="font-semibold text-gray-900">Rs {list.reduce((s, r) => s + Number(r.paid_amount ?? Math.max(0, Number(r.original_amount || 0) - Number(r.amount || 0))), 0).toLocaleString('en-PK')}</span></div>
+            </div>
           </div>
         )}
       </div>
@@ -192,7 +230,7 @@ export default function AccountPayable({ embedded = false }) {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-[#108587]">{editing ? "Edit" : "Add"} Payable</h3>
-                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
+                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700 cursor-pointer"><X size={20} /></button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
@@ -219,8 +257,8 @@ export default function AccountPayable({ embedded = false }) {
                   </select>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-[#108587] text-white rounded hover:bg-[#0e7274]">Save</button>
+                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-[#108587] text-white rounded hover:bg-[#0e7274] cursor-pointer">Save</button>
                 </div>
               </form>
             </div>

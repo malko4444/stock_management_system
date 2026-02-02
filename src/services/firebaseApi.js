@@ -17,6 +17,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  onSnapshot,
 } from "firebase/firestore";
 import {
   signInWithEmailAndPassword,
@@ -228,13 +229,57 @@ export const accountReceivableApi = {
 
   // Add a receivable entry
   add: async (data) => {
-    const docRef = await addDoc(collection(db, "account_receivable"), {
+    // Basic validation so we fail fast with descriptive errors
+    if (!data || !data.admin_id) throw new Error('admin_id is required to create a receivable');
+
+    const status = data.status || "pending";
+    // derive numeric values
+    const providedAmount = data.amount != null ? Number(data.amount) : null;
+    const providedPaid = data.paid_amount != null ? Number(data.paid_amount) : 0;
+
+    let original = data.original_amount != null ? Number(data.original_amount) : (providedAmount != null ? providedAmount : null);
+    let paid = providedPaid;
+
+    // If there's no amount provided and no original amount, fail with a clear error
+    if (original == null && providedPaid === 0) {
+      throw new Error('original_amount or amount is required and must be a number');
+    }
+
+    let remaining = providedAmount != null ? providedAmount : (original != null ? Math.max(0, original - paid) : 0);
+
+    if (status === "paid") {
+      // If marked paid on creation, treat the provided amount as fully paid
+      if (original == null) original = remaining;
+      paid = original;
+      remaining = 0;
+    }
+
+    let payload = {
       ...data,
       admin_id: data.admin_id,
       created_at: data.created_at || Timestamp.now(),
-      status: data.status || "pending",
-    });
-    return docRef.id;
+      status,
+      original_amount: original,
+      paid_amount: paid,
+      amount: remaining,
+    };
+
+    // Only set paid_at when we actually have a date (avoid undefined which Firestore rejects)
+    if (status === "paid") payload.paid_at = Timestamp.now();
+    else if (data.paid_at) payload.paid_at = data.paid_at;
+
+    // Remove any keys with undefined values because Firestore rejects undefined field values
+    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+
+    try {
+      const docRef = await addDoc(collection(db, "account_receivable"), payload);
+      // Dispatch a global event so UI can refresh in real-time
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'receivable', action: 'add', id: docRef.id } }));
+      return docRef.id;
+    } catch (err) {
+      console.error('Failed to add receivable in firestore:', err);
+      throw new Error('Failed to create receivable: ' + (err?.message || String(err)));
+    }
   },
 
   // Apply a payment to pending receivables for a customer in FIFO order
@@ -252,27 +297,77 @@ export const accountReceivableApi = {
     for (const d of snap.docs) {
       if (remainder <= 0) break;
       const data = d.data();
-      const amt = Number(data.amount) || 0;
-      if (amt <= 0) {
-        await updateDoc(d.ref, { status: "paid", amount: 0 });
+
+      // derive original & paid and remaining amounts reliably
+      const paidSoFar = Number(data.paid_amount || 0);
+      const remaining = Number(data.amount ?? (Number(data.original_amount || 0) - paidSoFar));
+      const original = Number(data.original_amount ?? (paidSoFar + remaining));
+
+      if (remaining <= 0) {
+        // ensure fully paid state
+        await updateDoc(d.ref, { status: "paid", amount: 0, original_amount: original, paid_amount: original, paid_at: Timestamp.now() });
         continue;
       }
-      if (remainder >= amt) {
-        await updateDoc(d.ref, { amount: 0, status: "paid", paid_at: Timestamp.now() });
-        remainder -= amt;
+
+      if (remainder >= remaining) {
+        // fully pay this entry
+        await updateDoc(d.ref, { amount: 0, status: "paid", original_amount: original, paid_amount: paidSoFar + remaining, paid_at: Timestamp.now() });
+        remainder -= remaining;
       } else {
-        await updateDoc(d.ref, { amount: amt - remainder });
+        // partially pay
+        await updateDoc(d.ref, { amount: remaining - remainder, paid_amount: paidSoFar + remainder, original_amount: original });
         remainder = 0;
       }
     }
+    // Notify listeners after payments applied
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'receivable', action: 'applyPayment', adminId, customerId } }));
     return remainder;
   },
 
   update: async (id, data) => {
-    await updateDoc(doc(db, "account_receivable", id), { ...data, updated_at: new Date() });
+    const ref = doc(db, "account_receivable", id);
+    const snap = await getDoc(ref);
+    const old = snap.exists() ? snap.data() : {};
+    const payload = { ...data, updated_at: new Date() };
+
+    if (data.status === "paid") {
+      const oldRemaining = Number(old.amount ?? 0);
+      const oldPaid = Number(old.paid_amount ?? 0);
+      const oldOriginal = Number(old.original_amount ?? (oldPaid + oldRemaining));
+
+      // If user provided an amount on the update (treated as full amount), use it as original and paid
+      if (data.amount != null && Number(data.amount) > 0) {
+        payload.original_amount = Number(data.amount);
+        payload.paid_amount = Number(data.amount);
+      } else {
+        payload.original_amount = oldOriginal;
+        payload.paid_amount = oldOriginal;
+      }
+
+      payload.amount = 0;
+      payload.paid_at = Timestamp.now();
+    }
+
+    // Remove undefined fields to avoid Firestore rejecting the update
+    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+
+    await updateDoc(ref, payload);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'receivable', action: 'update', id } }));
   },
+
   delete: async (id) => {
     await deleteDoc(doc(db, "account_receivable", id));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'receivable', action: 'delete', id } }));
+  },
+
+  // Real-time listener for receivables by admin
+  listenByAdmin: (adminId, callback) => {
+    const q = query(collection(db, "account_receivable"), where("admin_id", "==", adminId), orderBy("created_at", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      callback(items);
+    });
+    return unsub;
   },
 };
 
@@ -297,19 +392,40 @@ export const accountPayableApi = {
   },
 
   add: async (data) => {
-    const docRef = await addDoc(collection(db, "account_payable"), {
+    // Ensure original and paid amounts are present for accurate UI and totals
+    const original = data.original_amount != null ? Number(data.original_amount) : Number(data.amount || 0);
+    const paid = data.paid_amount != null ? Number(data.paid_amount) : 0;
+    const payload = {
       ...data,
       admin_id: data.admin_id,
       created_at: data.created_at || Timestamp.now(),
       status: data.status || "pending",
-    });
+      original_amount: original,
+      paid_amount: paid,
+      // `amount` is the remaining payable
+      amount: data.amount != null ? Number(data.amount) : Math.max(0, original - paid),
+    };
+    const docRef = await addDoc(collection(db, "account_payable"), payload);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'payable', action: 'add', id: docRef.id } }));
     return docRef.id;
   },
   update: async (id, data) => {
     await updateDoc(doc(db, "account_payable", id), { ...data, updated_at: new Date() });
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'payable', action: 'update', id } }));
   },
   delete: async (id) => {
     await deleteDoc(doc(db, "account_payable", id));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('financialChange', { detail: { module: 'payable', action: 'delete', id } }));
+  },
+
+  // Real-time listener for payables
+  listenByAdmin: (adminId, callback) => {
+    const q = query(collection(db, "account_payable"), where("admin_id", "==", adminId), orderBy("created_at", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      callback(items);
+    });
+    return unsub;
   },
 
   // find payables created for a specific inventory batch
@@ -391,8 +507,19 @@ export const reportsApi = {
 
     recentTxs.sort((a, b) => b.date - a.date);
 
-    const recvPending = recv.filter((r) => r.status === "pending").reduce((s, r) => s + (Number(r.amount) || 0), 0);
-    const payPending = pay.filter((r) => r.status === "pending").reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    // Pending balances must consider current remaining amounts. Paid items are not pending.
+    // If a document lacks `amount`, fallback to original_amount - paid_amount so legacy documents are handled correctly.
+    const recvPending = recv.reduce((s, r) => {
+      if (r.status === "paid") return s;
+      const remaining = Number(r.amount ?? (Number(r.original_amount || 0) - Number(r.paid_amount || 0)));
+      return s + Math.max(0, remaining || 0);
+    }, 0);
+
+    const payPending = pay.reduce((s, r) => {
+      if (r.status === "paid") return s;
+      const remaining = Number(r.amount ?? (Number(r.original_amount || 0) - Number(r.paid_amount || 0)));
+      return s + Math.max(0, remaining || 0);
+    }, 0);
 
     const topDebtors = customerBalances
       .filter((c) => c.balance > 0)
