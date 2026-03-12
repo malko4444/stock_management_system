@@ -2,7 +2,6 @@ import React, { useContext, useEffect, useState, useRef } from 'react';
 import { inventoryApi } from '../services/firebaseApi';
 import InventoryProducts from '../components/InventoryProducts';
 import { AdminDataContext } from './AdminContext';
-import { FinancialContext } from '../contexts/FinancialContext';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -15,7 +14,6 @@ function InventoryItemAdd({ embedded = false }) {
     const [onAccount, setOnAccount] = useState(false);
     const adminId = localStorage.getItem('adminId');
     const inventoryProductsRef = useRef(null);
-    const financial = React.useContext(FinancialContext);
 
     useEffect(() => {
         if (updatedData && Object.keys(updatedData).length > 0) {
@@ -52,26 +50,6 @@ function InventoryItemAdd({ embedded = false }) {
                     vendor_name: vendorName || null,
                     on_account: !!onAccount,
                 });
-
-                // Create payable entry if this was purchased 'on account'
-                if (onAccount && financial?.createPayableForInventory) {
-                    try {
-                        await financial.createPayableForInventory({
-                            admin_id: adminId,
-                            inventory_id: newId,
-                            vendor_id: null,
-                            vendor_name: vendorName || 'Unknown Vendor',
-                            description: `Inventory purchase: ${productName}`,
-                            amount: qty * unitPrice,
-                            created_at: new Date(),
-                            status: 'pending',
-                            meta: { quantity: qty }
-                        });
-                    } catch (e) {
-                        console.error('Error creating payable for inventory:', e);
-                    }
-                }
-
                 toast.success('Inventory added successfully!');
             } else {
                 await inventoryApi.update(updatedData.id, {
@@ -81,15 +59,6 @@ function InventoryItemAdd({ embedded = false }) {
                     vendor_name: vendorName || updatedData.vendor_name,
                     on_account: !!onAccount,
                 });
-
-                // If price changed, update estimated value in payables for any open orders
-                if (Number(updatedData.price) !== unitPrice && financial?.updatePayablesForInventoryPriceChange) {
-                    try {
-                        await financial.updatePayablesForInventoryPriceChange({ admin_id: adminId, inventory_id: updatedData.id, newUnitPrice: unitPrice });
-                    } catch (e) {
-                        console.error('Failed to update payables after price change:', e);
-                    }
-                }
 
                 toast.success('Inventory updated successfully!');
             }
@@ -106,33 +75,64 @@ function InventoryItemAdd({ embedded = false }) {
     return (
         <>
             <div className={embedded ? "min-h-0 flex flex-col items-center py-2 md:py-2" : "min-h-screen bg-gray-100 flex flex-col items-center py-12"}>
-                <div className="max-w-xl w-full bg-white rounded-lg shadow p-6 mb-6">
-                    <h2 className="text-xl font-semibold text-[#108587] mb-4">Add Inventory Batch</h2>
-                    <div className="space-y-3">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Product Name</label>
-                            <input value={productName} onChange={(e) => setProductName(e.target.value)} className="w-full border rounded px-3 py-2" />
-                        </div>
-                        <div className="flex gap-3">
-                            <div className="flex-1">
-                                <label className="block text-sm font-medium text-gray-700">Quantity</label>
-                                <input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full border rounded px-3 py-2" />
-                            </div>
-                            <div className="flex-1">
-                                <label className="block text-sm font-medium text-gray-700">Unit Price</label>
-                                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full border rounded px-3 py-2" />
-                            </div>
+                <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl border border-[#E8F8F9] p-6 sm:p-8 mb-6">
+                    <h2 className="text-xl font-bold text-[#108587] mb-6">Add Inventory Batch</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Product Name *</label>
+                            <input 
+                                value={productName} 
+                                onChange={(e) => setProductName(e.target.value)} 
+                                placeholder="Enter product name..."
+                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
+                            />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Vendor (optional)</label>
-                            <input value={vendorName} onChange={(e) => setVendorName(e.target.value)} className="w-full border rounded px-3 py-2" />
+                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Quantity *</label>
+                            <input 
+                                type="number" 
+                                value={quantity} 
+                                onChange={(e) => setQuantity(e.target.value)} 
+                                placeholder="0"
+                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
+                            />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <input id="onAccount" type="checkbox" checked={onAccount} onChange={(e) => setOnAccount(e.target.checked)} />
-                            <label htmlFor="onAccount" className="text-sm text-gray-700">Purchase On Account</label>
+                        <div>
+                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Unit Price (Rs)</label>
+                            <input 
+                                type="number" 
+                                value={price} 
+                                onChange={(e) => setPrice(e.target.value)} 
+                                placeholder="0"
+                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
+                            />
                         </div>
-                        <div className="flex justify-end">
-                            <button onClick={addInventoryItem} className="px-4 py-2 bg-[#108587] text-white rounded">Save</button>
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Vendor (Optional)</label>
+                            <input 
+                                value={vendorName} 
+                                onChange={(e) => setVendorName(e.target.value)} 
+                                placeholder="Supplier name..."
+                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
+                            />
+                        </div>
+                        <div className="md:col-span-2 flex items-center gap-3 py-2">
+                            <input 
+                                id="onAccount" 
+                                type="checkbox" 
+                                checked={onAccount} 
+                                onChange={(e) => setOnAccount(e.target.checked)}
+                                className="w-4 h-4 text-[#108587] border border-[#20dbdf] rounded-lg focus:ring-[#108587] cursor-pointer" 
+                            />
+                            <label htmlFor="onAccount" className="text-sm font-medium text-gray-600 cursor-pointer">Purchase On Account</label>
+                        </div>
+                        <div className="md:col-span-2 flex justify-end pt-4 mt-2 border-t border-gray-50">
+                            <button 
+                                onClick={addInventoryItem} 
+                                className="px-8 py-2.5 bg-[#108587] text-white text-sm font-bold rounded-lg hover:bg-[#0e7274] shadow-lg shadow-[#108587]/20 transition-all active:scale-95 cursor-pointer"
+                            >
+                                {updatedData ? "Update Inventory" : "Save Inventory"}
+                            </button>
                         </div>
                     </div>
                 </div>

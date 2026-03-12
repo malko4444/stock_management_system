@@ -55,7 +55,7 @@ const Topbar = ({ onSearch, searchType = "products", showSearch = true }) => {
             <input
               type="text"
               placeholder={searchType === "products" ? "Search products..." : "Search customers..."}
-              className="w-full h-full pl-8 pr-8 py-1 rounded-lg border-0 outline-none text-[#108587] bg-transparent"
+              className="w-full h-full pl-8 pr-8 py-1 rounded-lg border-0 outline-none text-[#108587] bg-transparent focus:ring-0 focus:shadow-none focus:outline-none"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />

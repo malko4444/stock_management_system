@@ -4,16 +4,11 @@ import {
   LayoutDashboard,
   Users,
   ChevronDown,
-  ChevronRight,
-  UserCog,
-  Wallet,
-  BookOpen,
-  Receipt,
-  FileText,
-  BarChart2,
-  ClipboardList,
   PackagePlus,
-  Trash2,
+  TrendingUp,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChevronRight,
 } from "lucide-react";
 
 const menuItems = [
@@ -21,30 +16,16 @@ const menuItems = [
     name: "Inventory",
     icon: <LayoutDashboard size={20} />,
     component: "inventory",
-    subItems: [{ name: "Inventory Item", icon: <PackagePlus size={20} />, component: "inventory-item" }],
+    subItems: [{ name: "Add Item", icon: <PackagePlus size={20} />, component: "inventory-item" }],
   },
   {
-    name: "Customer",
+    name: "Customers",
     icon: <Users size={20} />,
     component: "customers",
-    subItems: [{ name: "Customer Details", icon: <Users size={20} />, component: "customer-details" }],
-  },
-  {
-    name: "Employees",
-    icon: <UserCog size={20} />,
-    subItems: [{ name: "Payroll", icon: <Wallet size={20} />, component: "payroll" }],
-  },
-  {
-    name: "Accounting",
-    icon: <BookOpen size={20} />,
     subItems: [
-      { name: "Account Receivable", icon: <Receipt size={20} />, component: "account-receivable" },
-      { name: "Account Payable", icon: <FileText size={20} />, component: "account-payable" },
+      { name: "Loan Summary", icon: <TrendingUp size={20} />, component: "loan-summary" },
     ],
   },
-  { name: "Reports", icon: <BarChart2 size={20} />, component: "reports" },
-  { name: "Reviews", icon: <ClipboardList size={20} />, component: "reviews" },
-  { name: "Delete History", icon: <Trash2 size={20} />, component: "delete-history" },
 ];
 
 function findSelectedName(activeComponent) {
@@ -59,7 +40,7 @@ function findSelectedName(activeComponent) {
   return "Inventory";
 }
 
-const Sidebar = ({ activeComponent, setActiveComponent }) => {
+const Sidebar = ({ activeComponent, setActiveComponent, isCollapsed, setIsCollapsed }) => {
   const [selected, setSelected] = useState(() => findSelectedName(activeComponent));
   const [expandedItems, setExpandedItems] = useState({});
 
@@ -84,28 +65,37 @@ const Sidebar = ({ activeComponent, setActiveComponent }) => {
   };
 
   return (
-    <aside className="w-full max-w-[250px] min-h-screen shrink-0 p-4 border-0 border-r border-[#17BCBE] bg-white lg:min-h-[100vh]">
-      <div className="flex items-center gap-2.5 mb-6">
-        <img className="h-8 w-8" src={navIcon} alt="Logo" />
-        <span className="text-xl font-bold text-[#108587] leading-tight lg:text-2xl">Stockease</span>
+    <aside className={`${isCollapsed ? "w-20" : "w-full max-w-[250px]"} min-h-screen shrink-0 p-4 border-0 border-r border-[#17BCBE] bg-white lg:min-h-[100vh] transition-all duration-300 ease-in-out relative group`}>
+      <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2.5"} mb-6`}>
+        <img className="h-8 w-8 min-w-[32px]" src={navIcon} alt="Logo" />
+        {!isCollapsed && <span className="text-xl font-bold text-[#108587] leading-tight lg:text-2xl whitespace-nowrap overflow-hidden">Stockease</span>}
       </div>
+
+      <button 
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="absolute -right-3 top-70 bg-white border border-[#17BCBE] rounded-full p-1 text-[#108587] hover:bg-[#E8F8F9] transition-colors z-10 shadow-sm"
+        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+      </button>
 
       <ul className="space-y-2 mt-6">
         {menuItems.map((item) => (
           <li key={item.name}>
             <div
-              className={`flex items-center justify-between p-2 rounded-lg cursor-pointer w-full transition-colors
+              className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} p-2 rounded-lg cursor-pointer w-full transition-colors
                 ${selected === item.name ? "bg-[#E8F8F9] text-[#108587] border-l-[3px] border-[#17BCBE]" : "text-[#17BCBE] hover:bg-[#E8F8F9] hover:text-[#108587]"}`}
               onClick={() => handleItemClick(item)}
+              title={isCollapsed ? item.name : ""}
             >
               <div className="flex items-center gap-3 min-w-0">
                 {item.icon}
-                <span className="text-sm font-medium truncate lg:text-base">{item.name}</span>
+                {!isCollapsed && <span className="text-sm font-medium truncate lg:text-base">{item.name}</span>}
               </div>
-              {item.subItems && (expandedItems[item.name] ? <ChevronDown size={20} className="shrink-0" /> : <ChevronRight size={20} className="shrink-0" />)}
+              {!isCollapsed && item.subItems && (expandedItems[item.name] ? <ChevronDown size={20} className="shrink-0" /> : <ChevronRight size={20} className="shrink-0" />)}
             </div>
 
-            {item.subItems && expandedItems[item.name] && (
+            {!isCollapsed && item.subItems && expandedItems[item.name] && (
               <ul className="ml-6 mt-1 space-y-1">
                 {item.subItems.map((subItem) => (
                   <li

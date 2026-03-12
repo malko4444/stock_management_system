@@ -12,4 +12,57 @@
       caret-color: theme('colors.gray.800') !important;
       background-color: transparent !important;
     }
+
+    html {
+      scroll-behavior: smooth;
+      scrollbar-gutter: stable;
+    }
+
+    /* Custom Scrollbar Styles */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #108587;
+      border-radius: 10px;
+      border: 1px solid #f1f5f9;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0e6f70;
+    }
+
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #108587 #f1f5f9;
+    }
+
+    /* Interactivity */
+    button, 
+    input[type="submit"], 
+    input[type="button"],
+    .btn {
+      cursor: pointer;
+    }
+
+    input, textarea, select {
+      border-width: 1px;
+      border-style: solid;
+      border-color: #20dbdf;
+      border-radius: 0.5rem; /* rounded-lg */
+      transition: all 0.2s ease-in-out;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #108587;
+      box-shadow: 0 0 0 2px rgba(16, 133, 135, 0.2);
+    }
   }

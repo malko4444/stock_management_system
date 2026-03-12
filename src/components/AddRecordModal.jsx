@@ -1,335 +1,387 @@
-import React, { useContext, useState, useEffect } from "react";
-import { customerDataDataContext } from "../pages/CustomerContext";
-import { customerRecordsApi, inventoryApi, accountReceivableApi, accountPayableApi } from "../services/firebaseApi";
+import React, { useContext, useState, useEffect, useRef } from "react";
+import { LoanContext } from "../contexts/LoanContext";
+import { inventoryApi } from "../services/firebaseApi";
 import { toast } from "react-toastify";
-import { X } from "lucide-react";
+import { X, Search, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
-
-const PAYMENT_METHODS = [
-  { value: "cash", label: "Cash" },
-  { value: "jazzcash", label: "JazzCash" },
-  { value: "easypaisa", label: "EasyPaisa" },
-  { value: "bank", label: "Bank Transfer" },
-];
+import { createPortal } from "react-dom";
 
 export default function AddRecordModal({ isOpen, onClose, customerId, customerName, onSuccess }) {
-  const { setCustomerId, setCustomerData, inventoryItem } = useContext(customerDataDataContext);
+  const { submitTransaction, getCustomerDues } = useContext(LoanContext);
   const adminId = localStorage.getItem("adminId");
 
-  const [transactionType, setTransactionType] = useState("send");
-  const [productSearch, setProductSearch] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [price, setPrice] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [transactionType, setTransactionType] = useState("add_dues");
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
   const [transactionDate, setTransactionDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [currentBalance, setCurrentBalance] = useState(0);
-  const [errors, setErrors] = useState({});
+  
+  const [currentDues, setCurrentDues] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const inventoryList = Array.isArray(inventoryItem) ? inventoryItem : [];
-  const filteredProducts = productSearch
-    ? inventoryList.filter((p) => p.productName?.toLowerCase().includes(productSearch.toLowerCase()))
-    : inventoryList;
+  // New Inventory Fields
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [itemName, setItemName] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [pricePerUnit, setPricePerUnit] = useState("");
+  const [showItemDropdown, setShowItemDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // New Payment Fields
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [clearanceDate, setClearanceDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   useEffect(() => {
-    if (!isOpen || !customerId || !adminId) return;
-    setCustomerId(customerId);
-    const fetchBalance = async () => {
-      try {
-        const records = await customerRecordsApi.getByCustomerAndAdmin(customerId, adminId);
-        const balance = records.reduce((sum, r) => {
-          if (r.type === "send") return sum + (r.total_amount || 0);
-          if (r.type === "receive") return sum - (r.amount || 0);
-          return sum;
-        }, 0);
-        setCurrentBalance(balance);
-      } catch (e) {
-        setCurrentBalance(0);
-      }
+    if (!isOpen || !customerId) return;
+    const dues = getCustomerDues(customerId);
+    setCurrentDues(dues);
+  }, [isOpen, customerId, getCustomerDues]);
+
+  useEffect(() => {
+    if (!isOpen || !adminId) return;
+    const fetchInventory = async () => {
+        try {
+            const items = await inventoryApi.getByAdmin(adminId);
+            setInventoryItems(items);
+        } catch(err) {
+            console.error("Failed to fetch inventory", err);
+        }
     };
-    fetchBalance();
-  }, [isOpen, customerId, adminId, setCustomerId]);
+    fetchInventory();
+  }, [isOpen, adminId]);
 
   useEffect(() => {
     if (!isOpen) return;
-    setTransactionType("send");
-    setProductSearch("");
-    setSelectedProduct("");
-    setQuantity("");
-    setPrice("");
-    setPaymentAmount("");
-    setPaymentMethod("");
+    setTransactionType("add_dues");
+    setAmount("");
+    setItemName("");
+    setDescription("");
     setTransactionDate(format(new Date(), "yyyy-MM-dd"));
-    setErrors({});
+    setSelectedProductId("");
+    setQuantity("");
+    setPricePerUnit("");
+    setPaymentMethod("Cash");
+    setClearanceDate(format(new Date(), "yyyy-MM-dd"));
+    setShowItemDropdown(false);
   }, [isOpen]);
 
-  const selectedProductData = selectedProduct ? inventoryList.find((p) => p.id === selectedProduct) : null;
-  const totalAmount = selectedProductData && quantity && price ? Number(quantity) * Number(price) : 0;
-  const remainingBalance = currentBalance - Number(paymentAmount || 0);
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowItemDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  const validateSend = () => {
-    const e = {};
-    if (!selectedProduct) e.product = "Select a product";
-    if (!quantity || Number(quantity) <= 0) e.quantity = "Valid quantity required";
-    if (selectedProductData && Number(quantity) > selectedProductData.quantity) e.quantity = "Not enough stock";
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
+  // Derive amount for product sales
+  useEffect(() => {
+     if (transactionType === "add_dues" && quantity && pricePerUnit) {
+         setAmount(String(Number(quantity) * Number(pricePerUnit)));
+     }
+  }, [quantity, pricePerUnit, transactionType]);
 
-  const validateReceive = () => {
-    const e = {};
-    if (!paymentAmount || Number(paymentAmount) <= 0) e.amount = "Valid amount required";
-    if (!paymentMethod) e.paymentMethod = "Select payment method";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  const filteredItems = inventoryItems.filter(item => 
+    (item.productName || item.name || "").toLowerCase().includes(itemName.toLowerCase())
+  );
+
+  const selectItem = (item) => {
+      setItemName(item.productName || item.name || "");
+      setSelectedProductId(item.id);
+      setPricePerUnit(item.price || "");
+      setShowItemDropdown(false);
   };
 
   const handleSave = async () => {
     if (!customerId || !adminId) return;
+
     setSaving(true);
     try {
-      const created_at = transactionDate ? new Date(transactionDate + "T12:00:00") : new Date();
-      if (transactionType === "send") {
-        if (!validateSend()) {
-          setSaving(false);
-          return;
-        }
-        const qty = Number(quantity);
-        const unitPrice = Number(price) || 0;
-        const total = qty * unitPrice;
-        await customerRecordsApi.add({
-          customer_id: customerId,
-          admin_id: adminId,
-          product_name: selectedProductData.productName,
-          quantity: qty,
-          price: unitPrice,
-          product_id: selectedProduct,
-          total_amount: total,
-          created_at,
-          type: "send",
-        });
-        await inventoryApi.updateQuantity(selectedProduct, selectedProductData.quantity - qty);
-        // Create a matching receivable (pending) so Account Receivable stays in sync
-        try {
-          await accountReceivableApi.add({
-            admin_id: adminId,
-            customer_id: customerId,
-            customer_name: customerName,
-            description: `Product sent: ${selectedProductData.productName}`,
-            amount: total,
-            status: "pending",
-            created_at,
-          });
-        } catch (e) {
-          console.error("Failed to create receivable entry:", e);
-        }
-        toast.success("Product sent successfully!");
-      } else {
-        if (!validateReceive()) {
-          setSaving(false);
-          return;
-        }
-        await customerRecordsApi.add({
-          customer_id: customerId,
-          admin_id: adminId,
-          amount: Number(paymentAmount),
-          payment_method: paymentMethod,
-          created_at,
-          type: "receive",
-          previous_balance: currentBalance,
-          remaining_balance: remainingBalance,
-        });
-        // Apply payment to pending receivables. If surplus remains, register a payable (customer credit)
-        try {
-          const remainder = await accountReceivableApi.applyPayment(adminId, customerId, Number(paymentAmount));
-          if (remainder > 0) {
-            await accountPayableApi.add({
-              admin_id: adminId,
-              payee_id: customerId,
-              payee: customerName,
-              description: "Overpayment / Customer Credit",
-              amount: Number(remainder),
-              status: "pending",
-              created_at,
-            });
+      const isAddingDues = transactionType === "add_dues";
+      const type = isAddingDues ? "product_send" : "payment_receive";
+
+      let payload = {
+        transactionType: type,
+        adminId,
+        customerId,
+        customerName,
+        transactionDate,
+        description: description.trim() || undefined,
+      };
+
+      if (isAddingDues) {
+          if (!itemName || !quantity || !pricePerUnit) {
+              toast.error("Please fill in product details completely");
+              setSaving(false); 
+              return;
           }
-        } catch (e) {
-          console.error("Failed to apply payment:", e);
-        }
-        toast.success("Payment recorded successfully!");
+          if (!selectedProductId) {
+              toast.error("Please select a valid item from the inventory list");
+              setSaving(false);
+              return;
+          }
+          payload.productId = selectedProductId;
+          payload.productName = itemName;
+          payload.quantity = Number(quantity);
+          payload.pricePerUnit = Number(pricePerUnit);
+      } else {
+          if (!amount || Number(amount) <= 0) {
+              toast.error("Please enter a valid amount");
+              setSaving(false); 
+              return;
+          }
+          payload.paymentAmount = Number(amount);
+          payload.paymentMethod = paymentMethod;
+          payload.clearanceDate = clearanceDate;
       }
+
+      const result = await submitTransaction(payload);
+      setCurrentDues(result.newBalance);
+      toast.success(`Transaction recorded!`);
       onSuccess?.();
-      onClose();
+      onClose(); 
     } catch (err) {
       console.error(err);
-      toast.error(transactionType === "send" ? "Failed to send product" : "Failed to record payment");
+      toast.error(`Error: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   if (!isOpen) return null;
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 pointer-events-auto border border-[#E8F8F9]">
-          <div className="flex justify-between items-center mb-5">
-            <h2 className="text-xl font-semibold text-[#108587]">Add Record</h2>
-            <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-700 p-1" aria-label="Close">
+ 
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[1000] overflow-y-auto bg-black/40 backdrop-blur-md pointer-events-auto"
+      onClick={onClose}
+    >
+      <div 
+        className="min-h-full flex items-center justify-center p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-4 md:p-5 border border-[#E8F8F9] pointer-events-auto">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-xl font-bold text-[#108587]">New Transaction</h2>
+            <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition">
               <X size={20} />
             </button>
           </div>
-
-          <div className="space-y-4">
+          {/* ... existing modal content ... */}
+ 
+          <div className="bg-[#E8F8F9] rounded-xl p-3 border border-[#20dbdf] mb-3 flex justify-between items-center">
             <div>
-              <label className="block text-sm font-medium text-[#108587] mb-1">Transaction Type</label>
-              <select
-                value={transactionType}
-                onChange={(e) => setTransactionType(e.target.value)}
-                className="w-full border border-[#20dbdf] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
-              >
-                <option value="send">Send Product</option>
-                <option value="receive">Receive Payment</option>
-              </select>
+                <p className="text-[10px] font-semibold text-[#108587] uppercase tracking-wider">Customer</p>
+                <p className="text-base font-semibold text-gray-900">{customerName}</p>
             </div>
-
+            <div className="text-right">
+                <p className="text-[10px] font-semibold text-[#108587] uppercase tracking-wider">Current Balance</p>
+                <p className="text-xl font-semibold text-gray-900">Rs {currentDues.toLocaleString()}</p>
+            </div>
+          </div>
+ 
+          <div className="space-y-2">
             <div>
-              <label className="block text-sm font-medium text-[#108587] mb-1">Date</label>
-              <input
-                type="date"
-                value={transactionDate}
-                onChange={(e) => setTransactionDate(e.target.value)}
-                className="w-full border border-[#20dbdf] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
+              <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-tight">Transaction Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTransactionType("add_dues")}
+                  className={`py-2 px-4 rounded-lg font-semibold text-xs border transition-all cursor-pointer ${
+                    transactionType === "add_dues"
+                      ? "bg-red-50 border-red-500 text-red-700 shadow-sm"
+                      : "bg-white border-gray-400 text-gray-400 hover:border-gray-300"
+                  }`}
+                >
+                  Dues Added (Sell)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransactionType("receive_payment")}
+                  className={`py-2 px-4 rounded-lg font-semibold text-xs border transition-all cursor-pointer ${
+                    transactionType === "receive_payment"
+                      ? "bg-green-50 border-green-500 text-green-700 shadow-sm"
+                      : "bg-white border-gray-400 text-gray-400 hover:border-gray-300"
+                  }`}
+                >
+                  Payment Received
+                </button>
+              </div>
+            </div>
+ 
+            {transactionType === "add_dues" ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="relative" ref={dropdownRef}>
+                      <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Select Inventory Item</label>
+                      <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                          <input
+                            type="text"
+                            value={itemName}
+                            onChange={(e) => {
+                                setItemName(e.target.value);
+                                setShowItemDropdown(true);
+                                setSelectedProductId(""); 
+                            }}
+                            onFocus={() => setShowItemDropdown(true)}
+                            placeholder="Search stock..."
+                            className="w-full border border-[#20dbdf] rounded-lg pl-9 pr-8 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] text-gray-900 transition-all cursor-pointer outline-none"
+                          />
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                      </div>
+                      
+                      {showItemDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                              {filteredItems.length > 0 ? (
+                                  filteredItems.map(item => (
+                                      <div 
+                                          key={item.id} 
+                                          onClick={() => selectItem(item)}
+                                          className="px-3 py-2 hover:bg-[#E8F8F9] cursor-pointer border-b border-gray-50 last:border-0 flex justify-between items-center"
+                                      >
+                                          <div>
+                                              <p className="font-bold text-xs text-gray-900">{item.productName || item.name}</p>
+                                              <p className="text-[10px] text-gray-500">Rs {item.price}</p>
+                                          </div>
+                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${Number(item.quantity) > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                              {item.quantity} in stock
+                                          </span>
+                                      </div>
+                                  ))
+                              ) : (
+                                  <div className="p-3 text-center text-gray-500 text-[10px] italic">No matching items</div>
+                              )}
+                          </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Quantity</label>
+                          <input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => setQuantity(e.target.value)}
+                            className="w-full border border-[#20dbdf] rounded-lg px-3 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 text-gray-900 outline-none"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Rate</label>
+                          <input
+                            type="number"
+                            value={pricePerUnit}
+                            onChange={(e) => setPricePerUnit(e.target.value)}
+                            className="w-full border border-[#20dbdf] rounded-lg px-3 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 text-gray-900 outline-none"
+                            placeholder="0"
+                          />
+                        </div>
+                    </div>
+                  </div>
+                  
+                </>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Amount Paid (Rs)</label>
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full border border-[#20dbdf] rounded-lg px-3 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 text-gray-900 font-bold outline-none"
+                      placeholder="Enter amount..."
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                      <div>
+                          <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Method</label>
+                          <select
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            className="w-full border border-[#20dbdf] rounded-lg px-3 py-2 text-xs text-gray-900 bg-white cursor-pointer outline-none"
+                          >
+                              <option value="Cash">Cash</option>
+                              <option value="Bank Transfer">Bank</option>
+                              <option value="Online">JazzCash</option>
+                              <option value="Cheque">Cheque</option>
+                          </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Date</label>
+                        <input
+                          type="date"
+                          value={clearanceDate}
+                          onChange={(e) => setClearanceDate(e.target.value)}
+                          className="w-full border border-[#20dbdf] rounded-lg px-3 py-2 text-xs text-gray-900 cursor-pointer outline-none"
+                        />
+                      </div>
+                  </div>
+                </div>
+            )}
+ 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
+                <div>
+                  <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Deal Date</label>
+                  <input
+                    type="date"
+                    value={transactionDate}
+                    onChange={(e) => setTransactionDate(e.target.value)}
+                    className="w-full border border-[#20dbdf] rounded-lg px-3 py-2 text-xs text-gray-900 cursor-pointer outline-none"
+                  />
+                </div>
+                {amount && (
+                   <div className="px-3 py-2 bg-[#F9FCFC] rounded-xl border border-[#20dbdf]/30 flex flex-col justify-center">
+                     <div className="flex justify-between items-center mb-1">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">
+                          {transactionType === "add_dues" ? "Order Total" : "Amount Paid"}
+                        </p>
+                        <p className="text-xs font-black text-[#108587]">Rs {Number(amount).toLocaleString()}</p>
+                     </div>
+                     <div className="flex justify-between items-center">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">New Balance Projection</p>
+                        <p className={`font-black text-sm ${transactionType === "add_dues" ? "text-red-600" : "text-green-600"}`}>
+                           Rs {(currentDues + (transactionType === "add_dues" ? Number(amount) : -Number(amount))).toLocaleString()}
+                        </p>
+                     </div>
+                   </div>
+                )}
+            </div>
+ 
+            <div>
+              <label className="block text-xs font-semibold text-[#108587] mb-1 uppercase tracking-tight">Notes</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={1}
+                className="w-full border border-[#20dbdf] rounded-lg px-3 py-2 text-xs focus:ring-4 focus:ring-[#108587]/10 text-gray-900 resize-none outline-none"
+                placeholder="Internal notes..."
               />
             </div>
-
-            {transactionType === "send" ? (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-[#108587] mb-1">Name / Product</label>
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => {
-                      setProductSearch(e.target.value);
-                      if (!e.target.value) setSelectedProduct("");
-                    }}
-                    placeholder="Enter product name"
-                    className="w-full border border-[#20dbdf] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
-                  />
-                  {filteredProducts.length > 0 && (
-                    <ul className="mt-1 border border-gray-200 rounded-lg shadow max-h-40 overflow-y-auto">
-                      {filteredProducts.map((p) => (
-                        <li
-                          key={p.id}
-                          onClick={() => {
-                            setSelectedProduct(p.id);
-                            setProductSearch(p.productName);
-                            setPrice(String(p.price ?? 0));
-                            setErrors((prev) => ({ ...prev, product: "" }));
-                          }}
-                          className={`px-3 py-2 cursor-pointer hover:bg-[#E8F8F9] ${selectedProduct === p.id ? "bg-[#E8F8F9] text-[#108587]" : "text-gray-700"}`}
-                        >
-                          {p.productName} {p.quantity !== undefined ? `(Stock: ${p.quantity})` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {errors.product && <p className="mt-1 text-sm text-red-600">{errors.product}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#108587] mb-1">Quantity</label>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full border border-[#20dbdf] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
-                    placeholder="0"
-                  />
-                  {errors.quantity && <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#108587] mb-1">Price</label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full border border-[#20dbdf] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
-                    placeholder="0"
-                  />
-                </div>
-                {selectedProduct && quantity && price && (
-                  <div className="bg-[#E8F8F9] rounded-lg p-4 border border-[#20dbdf]">
-                    <p className="text-sm font-medium text-[#108587]">Order Summary</p>
-                    <p className="text-sm text-gray-800 mt-1">Product: {selectedProductData?.productName}</p>
-                    <p className="text-sm font-semibold text-gray-900 mt-0.5">Total Amount: Rs {totalAmount.toLocaleString()}</p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="bg-[#E8F8F9] rounded-lg p-4 border border-[#20dbdf]">
-                  <p className="text-sm font-medium text-[#108587]">Current Balance</p>
-                  <p className="text-xl font-bold text-gray-900 mt-1">Rs {currentBalance.toLocaleString()}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#108587] mb-1">Payment Amount</label>
-                  <input
-                    type="number"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="w-full border border-[#20dbdf] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
-                    placeholder="0"
-                  />
-                  {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#108587] mb-1">Payment Method</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full border border-[#20dbdf] rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
-                  >
-                    <option value="">Select payment method</option>
-                    {PAYMENT_METHODS.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                  {errors.paymentMethod && <p className="mt-1 text-sm text-red-600">{errors.paymentMethod}</p>}
-                </div>
-                {paymentAmount && paymentMethod && (
-                  <div className="bg-[#E8F8F9] rounded-lg p-4 border border-[#20dbdf]">
-                    <p className="text-sm text-[#108587]">Payment Method: <span className="font-medium text-gray-900">{PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label}</span></p>
-                    <p className="text-sm text-[#108587] mt-1">Remaining Balance: <span className="font-semibold text-gray-900">Rs {remainingBalance.toLocaleString()}</span></p>
-                  </div>
-                )}
-              </>
-            )}
           </div>
-
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+ 
+          <div className="flex gap-3 mt-4 pt-4 border-t border-gray-50">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors"
+              className="px-6 py-2 text-[#DC2626] bg-[#FFE7E7] hover:bg-[#fddada] transition-colors cursor-pointer rounded-lg text-xs font-semibold"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 bg-[#108587] text-white rounded-lg hover:bg-[#0e7274] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={saving || !amount}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all shadow-md cursor-pointer bg-[#C9FEFF]/70 text-[#108587] hover:bg-[#bdfbfd]/80 border border-[#bdfbfd]/80`}
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? "Processing..." : "Confirm Transaction"}
             </button>
           </div>
         </div>
       </div>
-    </>
+    </div>,
+    document.body
   );
 }

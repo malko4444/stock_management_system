@@ -51,10 +51,13 @@ function Signup() {
           <span className="text-2xl font-bold text-[#108587] leading-tight">Stockease</span>
         </div>
       </nav>
-    <div className="flex max-h-screen items-center justify-center pt-12 bg-gradient-to-b from-[#eff5f4] to-[#FFFFFF] px-4 sm:px-6 lg:px-8">
-      <div className="w-[25rem] pb-12 max-w-md sm:max-w-lg lg:max-w-xl bg-white p-8 shadow-md rounded-lg">
+    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="w-full max-w-md bg-white p-8 shadow-xl rounded-2xl border border-[#E8F8F9]">
         {/* Title */}
-        <h2 className="text-start pb-3 text-2xl font-bold text-[#108587]">Create New Account</h2>
+        <div className="mb-8">
+          <h2 className="text-2xl font-black text-[#108587]">Create Account</h2>
+          <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-bold font-sans">Join the ecosystem</p>
+        </div>
         
         {/* Error / Success Messages */}
         {error && (
@@ -70,10 +73,10 @@ function Signup() {
 
         {/* Signup Form */}
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <div className="relative">
+          <div>
             <label
               htmlFor="email"
-              className="absolute -top-2 left-3 z-10 px-2 text-xs font-medium text-[#108587] bg-white"
+              className="block text-[10px] font-bold text-[#108587] uppercase tracking-tight mb-1 px-1"
             >
               Email Address
             </label>
@@ -83,14 +86,15 @@ function Signup() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="block w-full px-4 py-3 mt-2 border border-gray-300 rounded-md shadow-sm"
+              placeholder="example@stockease.com"
+              className="block w-full px-4 py-2.5 text-sm border border-[#20dbdf] rounded-lg focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none"
             />
           </div>
 
-          <div className="relative">
+          <div>
             <label
               htmlFor="displayName"
-              className="absolute -top-2 left-3 z-10 px-2 text-xs font-medium text-[#108587] bg-white"
+              className="block text-[10px] font-bold text-[#108587] uppercase tracking-tight mb-1 px-1"
             >
               Display Name (optional)
             </label>
@@ -100,70 +104,74 @@ function Signup() {
               value={formData.displayName}
               onChange={handleChange}
               placeholder="How we'll greet you"
-              className="block w-full px-4 py-3 mt-2 border border-gray-300 rounded-md shadow-sm"
+              className="block w-full px-4 py-2.5 text-sm border border-[#20dbdf] rounded-lg focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none"
             />
           </div>
 
-          <div className="relative">
-            <label
-              htmlFor="password"
-              className="absolute -top-2 left-3 z-10 px-2 text-xs font-medium text-[#108587] bg-white"
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="block w-full px-4 py-3 mt-2 border border-gray-300 rounded-md shadow-sm"
-            />
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-[10px] font-bold text-[#108587] uppercase tracking-tight mb-1 px-1"
+              >
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                placeholder="••••••••"
+                className="block w-full px-4 py-2.5 text-sm border border-[#20dbdf] rounded-lg focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none"
+              />
+            </div>
 
-          <div className="relative">
-            <label
-              htmlFor="confirmPassword"
-              className="absolute -top-2 left-3 z-10 px-2 text-xs font-medium text-[#108587] bg-white"
-            >
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className={`block w-full px-4 py-3 mt-2 border rounded-md shadow-sm ${
-                formData.password &&
-                formData.confirmPassword &&
-                formData.password !== formData.confirmPassword
-                  ? "border-red-400"
-                  : "border-gray-300"
-              }`}
-            />
-            {formData.password &&
-              formData.confirmPassword &&
-              formData.password !== formData.confirmPassword && (
-                <p className="text-red-500 text-sm mt-1">Passwords do not match</p>
-              )}
+            <div>
+              <label
+                htmlFor="confirmPassword"
+                className="block text-[10px] font-bold text-[#108587] uppercase tracking-tight mb-1 px-1"
+              >
+                Confirm
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                placeholder="••••••••"
+                className={`block w-full px-4 py-2.5 text-sm border rounded-lg focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none ${
+                  formData.password &&
+                  formData.confirmPassword &&
+                  formData.password !== formData.confirmPassword
+                    ? "border-red-400"
+                    : "border-[#20dbdf]"
+                }`}
+              />
+            </div>
           </div>
+          {formData.password &&
+            formData.confirmPassword &&
+            formData.password !== formData.confirmPassword && (
+              <p className="text-red-500 text-[10px] font-bold mt-1 px-1 uppercase tracking-tight">Passwords do not match</p>
+            )}
 
-          <div>
+          <div className="pt-4">
             <button
               type="submit"
-              className="cursor-pointer w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#108587] hover:bg-[#0e6f70] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#108587]"
+              className="cursor-pointer w-full py-3 px-4 border border-transparent rounded-lg shadow-lg shadow-[#108587]/20 text-sm font-black text-white bg-[#108587] hover:bg-[#0e6f70] transition-all active:scale-[0.98]"
             >
-              Sign Up
+              Initialize Account
             </button>
           </div>
         </form>
 
 
         {/* Login Link */}
-        <div className="mt-4 text-center text-sm text-gray-600">
+        <div className="mt-8 text-center text-[10px] text-gray-400 font-bold uppercase tracking-tight">
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-[#108587] hover:underline">
+          <Link to="/login" className="text-[#108587] hover:underline ml-1">
             Log in here
           </Link>
         </div>

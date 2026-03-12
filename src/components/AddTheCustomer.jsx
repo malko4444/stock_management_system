@@ -1,57 +1,60 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
-import { customersApi, deletedRecordsApi, accountReceivableApi } from '../services/firebaseApi';
-import { FinancialContext } from '../contexts/FinancialContext';
-import { Pencil, Trash2, Plus, X } from 'lucide-react';
+import { customersApi, deletedRecordsApi } from '../services/firebaseApi';
+import { LoanContext } from '../contexts/LoanContext';
+import { Pencil, Trash2, Plus, X, ChevronRight, FileText } from 'lucide-react';
+import AddRecordModal from './AddRecordModal';
 
 const CustomerFormFields = ({ formData, errors, handleInputChange }) => (
-  <div className="space-y-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
     <div>
-      <label className="block text-sm font-medium text-[#108587] mb-1">Name *</label>
+      <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Name *</label>
       <input
         name="name"
         value={formData.name}
         onChange={handleInputChange}
         type="text"
-        className={`w-full p-2 border rounded-md ${errors.name ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-1 focus:ring-[#108587]`}
+        className={`w-full p-2 text-sm border rounded-lg ${errors.name ? 'border-red-500' : 'border-[#20dbdf]'} focus:outline-none focus:ring-2 focus:ring-[#108587]/20 transition-all outline-none`}
         autoFocus
       />
-      {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+      {errors.name && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.name}</p>}
     </div>
 
     <div>
-      <label className="block text-sm font-medium text-[#108587] mb-1">Phone *</label>
+      <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Phone *</label>
       <input
         name="phone"
         type="text"
         value={formData.phone}
         onChange={handleInputChange}
-        className={`w-full p-2 border rounded-md ${errors.phone ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-1 focus:ring-[#108587]`}
+        className={`w-full p-2 text-sm border rounded-lg ${errors.phone ? 'border-red-500' : 'border-[#20dbdf]'} focus:outline-none focus:ring-2 focus:ring-[#108587]/20 transition-all outline-none`}
       />
-      {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+      {errors.phone && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.phone}</p>}
     </div>
 
-    <div>
-      <label className="block text-[#108587] text-sm font-medium mb-1">Address *</label>
+    <div className="md:col-span-2">
+      <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Address *</label>
       <input
         name="address"
         type="text"
         value={formData.address}
         onChange={handleInputChange}
-        className={`w-full p-2 border rounded-md ${errors.address ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-1 focus:ring-[#108587]`}
+        className={`w-full p-2 text-sm border rounded-lg ${errors.address ? 'border-red-500' : 'border-[#20dbdf]'} focus:outline-none focus:ring-2 focus:ring-[#108587]/20 transition-all outline-none`}
       />
-      {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
+      {errors.address && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.address}</p>}
     </div>
 
-    <div>
-      <label className="block text-sm font-medium text-[#108587] mb-1">Current Balance *</label>
+    <div className="md:col-span-2">
+      <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Initial Loan / Dues (Rs)</label>
       <input
         name="balance"
-        type="text"
+        type="number"
         value={formData.balance}
         onChange={handleInputChange}
-        className={`w-full p-2 border rounded-md ${errors.balance ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-1 focus:ring-[#108587]`}
+        placeholder="0"
+        className={`w-full p-2 text-sm border rounded-lg ${errors.balance ? 'border-red-500' : 'border-[#20dbdf]'} focus:outline-none focus:ring-2 focus:ring-[#108587]/20 transition-all outline-none`}
       />
-      {errors.balance && <p className="text-red-500 text-sm mt-1">{errors.balance}</p>}
+      {errors.balance && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.balance}</p>}
+      <p className="text-[10px] text-gray-400 mt-1 italic">Leave 0 for a fresh customer.</p>
     </div>
   </div>
 );
@@ -65,66 +68,32 @@ const CustomerModal = ({
   handleSubmit,
   resetForm
 }) => {
-    // Add a useEffect for handling escape key to close the modal
     useEffect(() => {
         const handleKeyDown = (event) => {
-            if (event.key === 'Escape') {
-                resetForm();
-            }
-        };
-
-        if (showModal) {
-            document.addEventListener('keydown', handleKeyDown);
-        } else {
-            document.removeEventListener('keydown', handleKeyDown);
-        }
-
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [showModal, resetForm]);
-
-    // Add a useEffect for handling Enter key to submit the form
-    useEffect(() => {
-        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') resetForm();
             if (event.key === 'Enter') {
-                event.preventDefault(); // Prevent default form submission behavior
+                event.preventDefault();
                 handleSubmit();
             }
         };
+        if (showModal) document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [showModal, resetForm, handleSubmit]);
 
-        if (showModal) {
-            document.addEventListener('keydown', handleKeyDown);
-        } else {
-            document.removeEventListener('keydown', handleKeyDown);
-        }
-
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [showModal, handleSubmit]); 
+    if (!showModal) return null;
 
     return (
-  showModal && (
     <>
-      <div
-        className="fixed inset-0 bg-transparent bg-opacity-30 backdrop-blur-xs z-40"
-        onClick={resetForm}
-      ></div>
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        <div
-          className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4"
-          onClick={(e) => e.stopPropagation()}
-          tabIndex={0}
-        >
-          <div className="p-6">
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={resetForm} />
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E8F8F9] p-6 sm:p-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-[#108587]">
+              <h2 className="text-xl font-bold text-[#108587]">
                 {modalType === "add" ? "Add New Customer" : "Edit Customer"}
               </h2>
               <button
                 onClick={resetForm}
-                className="text-[#108587] hover:text-gray-700 focus:outline-none cursor-pointer"
+                className="text-gray-400 hover:text-gray-700 p-1"
                 aria-label="Close modal"
               >
                 <X size={20} />
@@ -137,26 +106,25 @@ const CustomerModal = ({
               handleInputChange={handleInputChange}
             />
 
-            <div className="flex justify-end space-x-3 mt-8">
+            <div className="flex justify-end gap-3 mt-8">
               <button
                 onClick={resetForm}
-                className="px-4 py-2 text-[#DC2626] rounded-md bg-[#FFE7E7] hover:bg-[#fddada] transition-colors focus:outline-none focus:ring-1 focus:ring-[#DC2626] cursor-pointer"
+                className="px-5 py-2 text-sm text-gray-500 font-bold rounded-lg hover:bg-gray-100 transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
-                className="px-4 py-2 bg-[#C9FEFF] text-[#108587] rounded-md hover:bg-[#bdfbfd] transition-colors focus:outline-none focus:ring-1 focus:ring-[#108587] cursor-pointer"
+                className="px-6 py-2 bg-[#108587] text-white text-sm rounded-xl hover:bg-[#0e7274] font-bold transition-all shadow-md shadow-[#108587]/20 cursor-pointer"
               >
-                {modalType === "add" ? "Add Customer" : "Update Customer"}
+                {modalType === "add" ? "Save Customer" : "Update Customer"}
               </button>
             </div>
-          </div>
         </div>
       </div>
     </>
-  )
-)};
+  );
+};
 
 const DeleteConfirmationModal = ({
   showDeleteModal,
@@ -166,77 +134,47 @@ const DeleteConfirmationModal = ({
 }) => {
     useEffect(() => {
         const handleKeyDown = (event) => {
-            if (event.key === 'Escape') {
-                setShowDeleteModal(false);
-            }
-        };
-
-        if (showDeleteModal) {
-            document.addEventListener('keydown', handleKeyDown);
-        } else {
-            document.removeEventListener('keydown', handleKeyDown);
-        }
-
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [showDeleteModal, setShowDeleteModal]);
-
-    useEffect(() => {
-        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setShowDeleteModal(false);
             if (event.key === 'Enter') {
                 event.preventDefault(); 
                 handleDeleteConfirm();
             }
         };
+        if (showDeleteModal) document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [showDeleteModal, setShowDeleteModal, handleDeleteConfirm]);
 
-        if (showDeleteModal) {
-            document.addEventListener('keydown', handleKeyDown);
-        } else {
-            document.removeEventListener('keydown', handleKeyDown);
-        }
-
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [showDeleteModal, handleDeleteConfirm]);
+    if (!showDeleteModal) return null;
 
     return (
-  showDeleteModal && (
     <>
-      <div
-        className="fixed inset-0 bg-transparent bg-opacity-30 backdrop-blur-sm z-40"
-        onClick={() => setShowDeleteModal(false)}
-      ></div>
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        <div
-          className="bg-white rounded-lg shadow-xl w-[340px] max-w-md mx-4 p-5"
-          onClick={(e) => e.stopPropagation()}
-          tabIndex={0}
-        >
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setShowDeleteModal(false)} />
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-[#108587]">Confirm Deletion</h2>
+            <h2 className="text-xl font-semibold text-red-600">Delete Customer</h2>
             <button
               onClick={() => setShowDeleteModal(false)}
-              className="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 rounded cursor-pointer"
-              aria-label="Close modal"
+              className="text-gray-400 hover:text-gray-600 p-1"
             >
               <X size={20} />
             </button>
           </div>
-          <p className="text-gray-600 mb-6">
-            Are you sure you want to delete customer "{customerToDelete?.name}"? This action cannot be undone.
+          <p className="text-gray-600 mb-6 font-medium">
+            Are you sure you want to delete <span className="text-gray-900 font-bold">{customerToDelete?.name}</span>? 
+            <br/><br/>
+            <span className="text-sm text-red-500">Warning: This cannot be undone and will delete their records.</span>
           </p>
-          <div className="flex justify-center space-x-3">
+          <div className="flex justify-end gap-3">
             <button
               onClick={() => setShowDeleteModal(false)}
-              className="px-4 py-2 bg-[#C9FEFF] text-[#108587] rounded-md cursor-pointer hover:bg-[#bdfbfd] transition-colors focus:outline-none focus:ring-1 focus:ring-[#108587]"
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleDeleteConfirm}
-              className="px-4 py-2 text-[#DC2626] rounded-md bg-[#FFE7E7] cursor-pointer hover:bg-[#fddada] transition-colors focus:outline-none focus:ring-1 focus:ring-[#DC2626]"
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
             >
               Delete
             </button>
@@ -244,71 +182,40 @@ const DeleteConfirmationModal = ({
         </div>
       </div>
     </>
-  )
-)};
+  );
+};
 
-const AddCustomerButton = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="flex items-center gap-2 bg-[#108587] text-white px-4 py-2 rounded-md hover:bg-[#0e7274] transition-colors cursor-pointer"
-  >
-    <Plus size={18} />
-    Add Customer
-  </button>
-);
-
-function AddTheCustomer({ searchTerm = '' }) {
-    const [formData, setFormData] = useState({
-        name: "",
-        phone: "",
-        address: "",
-        balance: ""
-    });
+export default function CustomersList({ searchTerm = '' }) {
+    const [formData, setFormData] = useState({ name: "", phone: "", address: "", balance: "" });
     const [errors, setErrors] = useState({});
-    const [toast, setToast] = useState({ show: false, message: "" });
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState("add");
     const [currentCustomerId, setCurrentCustomerId] = useState(null);
-    const [customers, setCustomers] = useState([]);
+    const { customers, fetchCustomers } = useContext(LoanContext);
     const [filteredCustomers, setFilteredCustomers] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [customerToDelete, setCustomerToDelete] = useState(null);
-    const adminId = localStorage.getItem("adminId");
-    const FinancialCtx = useContext(FinancialContext);
-
+    const [recordModalCustomer, setRecordModalCustomer] = useState(null); // Customer to add record for
+    
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(5);
+    const itemsPerPage = 8;
+    const adminId = localStorage.getItem("adminId");
 
-    const showToast = (message) => {
-        setToast({ show: true, message });
-        setTimeout(() => {
-            setToast({ show: false, message: "" });
-        }, 3000);
-    };
-
-    const fetchCustomers = useCallback(async () => {
-        try {
-            const customersList = await customersApi.getByAdmin(adminId);
-            setCustomers(customersList);
-        } catch (error) {
-            console.error("Error fetching customers: ", error);
-        } finally {
-            setLoading(false);
-        }
-    }, [adminId]);
+    const fetchInitialData = useCallback(() => {
+        if (adminId && customers.length === 0) fetchCustomers(adminId);
+    }, [adminId, fetchCustomers, customers.length]);
 
     useEffect(() => {
-        fetchCustomers();
-    }, [fetchCustomers]);
+        fetchInitialData();
+    }, [fetchInitialData]);
 
     useEffect(() => {
         if (searchTerm) {
-            const filtered = customers.filter(customer =>
-                customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                customer.phone.includes(searchTerm) ||
-                customer.address.toLowerCase().includes(searchTerm.toLowerCase())
+            const filtered = customers.filter(c =>
+                c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.phone.includes(searchTerm) ||
+                (c.address || "").toLowerCase().includes(searchTerm.toLowerCase())
             );
             setFilteredCustomers(filtered);
             setCurrentPage(1);
@@ -317,14 +224,8 @@ function AddTheCustomer({ searchTerm = '' }) {
         }
     }, [searchTerm, customers]);
 
-    // Wrap functions used in useEffect dependencies with useCallback
     const resetForm = useCallback(() => {
-        setFormData({
-            name: "",
-            phone: "",
-            address: "",
-            balance: ""
-        });
+        setFormData({ name: "", phone: "", address: "", balance: "" });
         setErrors({});
         setShowModal(false);
         setCurrentCustomerId(null);
@@ -335,22 +236,15 @@ function AddTheCustomer({ searchTerm = '' }) {
         if (!formData.name.trim()) tempErrors.name = "Name is required";
         if (!formData.phone.trim()) {
             tempErrors.phone = "Phone number is required";
-        } else if (!/^\d{10,11}$/.test(formData.phone)) {
-            tempErrors.phone = "Please enter a valid phone number (10-11 digits)";
         }
         if (!formData.address.trim()) tempErrors.address = "Address is required";
-        if (!formData.balance.trim()) tempErrors.balance = "Balance is required";
-
         setErrors(tempErrors);
         return Object.keys(tempErrors).length === 0;
     };
 
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
 
     const handleSubmit = useCallback(async () => {
@@ -361,41 +255,36 @@ function AddTheCustomer({ searchTerm = '' }) {
                 name: formData.name.trim(),
                 phone: formData.phone.trim(),
                 address: formData.address.trim(),
-                balance: formData.balance.trim(),
+                balance: Number(formData.balance || 0),
                 adminId,
             };
 
             if (modalType === "add") {
                 await customersApi.add({ ...customerData, createdAt: new Date() });
-                showToast("Customer added successfully");
             } else {
                 await customersApi.update(currentCustomerId, customerData);
-                // sync name across receivables
-                try {
-                    await FinancialCtx.syncCustomerName({ admin_id: adminId, customer_id: currentCustomerId, customer_name: customerData.name });
-                } catch (e) {}
-                showToast("Customer updated successfully");
             }
             resetForm();
-            fetchCustomers();
         } catch (error) {
             console.error("Error saving customer: ", error);
         }
-    }, [formData, modalType, currentCustomerId, adminId, resetForm, fetchCustomers]);
+    }, [formData, modalType, currentCustomerId, adminId, resetForm]);
 
-    const handleEdit = (customer) => {
+    const handleEdit = (e, customer) => {
+        e.stopPropagation(); // prevent row click navigation
         setFormData({
             name: customer.name,
             phone: customer.phone,
-            address: customer.address,
-            balance: customer.balance
+            address: customer.address || "",
+            balance: customer.balance || 0
         });
         setCurrentCustomerId(customer.id);
         setModalType("edit");
         setShowModal(true);
     };
 
-    const handleDeleteClick = (customer) => {
+    const handleDeleteClick = (e, customer) => {
+        e.stopPropagation();
         setCustomerToDelete(customer);
         setShowDeleteModal(true);
     };
@@ -403,15 +292,6 @@ function AddTheCustomer({ searchTerm = '' }) {
     const handleDeleteConfirm = useCallback(async () => {
         if (!customerToDelete) return;
         try {
-            // Prevent deletion if there are pending receivables
-            const recs = await accountReceivableApi.getByCustomerAndAdmin(adminId, customerToDelete.id);
-            const pendingSum = (recs || []).filter(r => r.status === 'pending').reduce((s, r) => s + (Number(r.amount) || 0), 0);
-            if (pendingSum > 0) {
-                showToast("Cannot delete customer with outstanding receivables. Please clear receivables first.");
-                setShowDeleteModal(false);
-                return;
-            }
-
             await deletedRecordsApi.add({
                 type: 'customer',
                 admin_id: adminId,
@@ -419,14 +299,22 @@ function AddTheCustomer({ searchTerm = '' }) {
                 phone: customerToDelete.phone,
             });
             await customersApi.delete(customerToDelete.id);
-            fetchCustomers();
-            showToast("Customer deleted successfully");
+            // The realtime listener handles UI refresh
         } catch (error) {
             console.error("Error deleting customer: ", error);
-            showToast("Error deleting customer");
         }
         setShowDeleteModal(false);
-    }, [customerToDelete, adminId, fetchCustomers]);
+    }, [customerToDelete, adminId]);
+
+    const viewCustomerDetails = (customerId) => {
+        const event = new CustomEvent('navigateTo', { detail: { component: 'customer-details', customerId } });
+        window.dispatchEvent(event);
+    };
+
+    const openAddRecord = (e, customer) => {
+      e.stopPropagation();
+      setRecordModalCustomer(customer);
+    };
 
     // Pagination Logic
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -434,158 +322,141 @@ function AddTheCustomer({ searchTerm = '' }) {
     const currentCustomers = filteredCustomers.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
 
-    const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-    const nextPage = () => {
-        if (currentPage < totalPages) {
-            setCurrentPage(prev => prev + 1);
-        }
-    };
-
-    const prevPage = () => {
-        if (currentPage > 1) {
-            setCurrentPage(prev => prev - 1);
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-        );
-    }
-
-    if (customers.length === 0) {
-        return (
-            <div className="min-h-[960px] w-full pb-102 bg-[#fcfcfc] flex flex-col items-center justify-center">
-                <h1 className="text-2xl font-semibold text-[#108587] mb-4">No Customers Found</h1>
-                <AddCustomerButton onClick={() => {
-                    setModalType("add");
-                    setShowModal(true);
-                }} />
-                <CustomerModal
-                    modalType={modalType}
-                    showModal={showModal}
-                    formData={formData}
-                    errors={errors}
-                    handleInputChange={handleInputChange}
-                    handleSubmit={handleSubmit}
-                    resetForm={resetForm}
-                />
-            </div>
-        );
-    }
-
     return (
-        <div className="min-h-[960px] w-full pb-8 bg-[#fcfcfc] flex flex-col">
-            {/* Customer Section Header */}
-            <div className="px-6 flex items-center justify-between h-[87px]">
-                <h1 className="text-2xl font-semibold text-[#108587]">Customers</h1>
-                <AddCustomerButton onClick={() => {
-                    setModalType("add");
-                    setShowModal(true);
-                }} />
+        <div className="flex flex-col h-full space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
+                  <p className="text-secondary text-sm mt-1">Manage your customers and their dues.</p>
+                </div>
+                <button
+                    onClick={() => { setModalType("add"); setShowModal(true); }}
+                    className="flex items-center gap-2 bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274] transition-colors shadow-sm cursor-pointer"
+                >
+                    <Plus size={18} />
+                    Add Customer
+                </button>
             </div>
 
             {/* Customers Table */}
-            <div className="min-w-[1005px] overflow-hidden mx-auto mt-4 bg-white rounded-lg shadow-md">
-                {filteredCustomers.length === 0 && customers.length > 0 ? (
-                    <div className="w-full py-12 flex flex-col items-center justify-center space-y-5">
-                        <p className="text-gray-500 text-lg">No customers found matching your search</p>
-                        <AddCustomerButton onClick={() => {
-                            setModalType("add");
-                            setShowModal(true);
-                        }} />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col">
+                {filteredCustomers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12 h-64">
+                        <div className="w-16 h-16 bg-[#E8F8F9] rounded-full flex items-center justify-center mb-4">
+                            <FileText className="text-[#108587]" size={24} />
+                        </div>
+                        <p className="text-gray-500 font-medium mb-4">No customers found.</p>
+                        {customers.length === 0 && (
+                          <button
+                              onClick={() => { setModalType("add"); setShowModal(true); }}
+                              className="text-[#108587] hover:underline font-medium"
+                          >
+                              Add your first customer
+                          </button>
+                        )}
                     </div>
                 ) : (
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-[#24dfe6] bg-[#E8F8F9]">
-                                <th className="text-left pl-11 py-3 font-medium text-[#108587]">Name</th>
-                                <th className="text-left pl-6 py-3 font-medium text-[#108587]">Phone #</th>
-                                <th className="text-left pl-6 py-3 font-medium text-[#108587]">Address</th>
-                                <th className="text-left pl-6 py-3 font-medium text-[#108587]">Current Balance</th>
-                                <th className="text-left pl-8 py-3 font-medium text-[#108587]">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {currentCustomers.map((customer) => (
-                                <tr
-                                    key={customer.id}
-                                    className="border-b border-gray-200 hover:bg-gradient-to-t from-[#cbcccc3d] to-[#fdfeff] transition-colors duration-150"
-                                    style={{ height: '45px' }}
-                                >
-                                    <td className="py-2 pl-10 pr-6 text-gray-900 font-medium">
-                                        <div className="flex items-center">
-                                            <div className="h-8 w-8 rounded-full bg-[#108587] flex items-center justify-center text-white font-semibold mr-3">
-                                                {customer.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <span>{customer.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-3 px-6 text-gray-600">
-                                        <a href={`tel:${customer.phone}`} className="hover:text-[#108587] hover:underline">
-                                            {customer.phone}
-                                        </a>
-                                    </td>
-                                    <td className="py-3 px-6 text-gray-600 max-w-xs truncate">
-                                        {customer.address}
-                                    </td>
-                                    <td className="py-3 px-6 font-medium">
-                                        <span className={`px-2 py-1 rounded-full text-xs ${
-                                            customer.balance > 0
-                                                ? 'bg-green-100 text-green-800'
-                                                : customer.balance < 0
-                                                    ? 'bg-red-100 text-red-800'
-                                                    : 'bg-yellow-100 text-yellow-800'
-                                        }`}>
-                                            {customer.balance || '0.00'}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 px-6">
-                                        <div className="flex gap-3 items-center">
-                                            <button
-                                                onClick={() => handleEdit(customer)}
-                                                className="p-2 rounded-full hover:bg-[#c9f7fccb] text-[#108587] hover:text-[#0e7274] transition-colors cursor-pointer"
-                                                aria-label="Edit customer"
-                                            >
-                                                <Pencil size={18} strokeWidth={1.5} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteClick(customer)}
-                                                className="p-2 rounded-full hover:bg-[#ffd1d1c2] text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-                                                aria-label="Delete customer"
-                                            >
-                                                <Trash2 size={18} strokeWidth={1.5} />
-                                            </button>
-                                        </div>
-                                    </td>
+                  <>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="py-4 px-6 font-semibold text-gray-700 text-sm">Name</th>
+                                    <th className="py-4 px-6 font-semibold text-gray-700 text-sm">Phone / Contact</th>
+                                    <th className="py-4 px-6 font-semibold text-gray-700 text-sm">Current Dues</th>
+                                    <th className="py-4 px-6 font-semibold text-gray-700 text-sm text-right">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {currentCustomers.map((customer) => {
+                                  const balance = Number(customer.balance || 0);
+                                  return (
+                                    <tr
+                                        key={customer.id}
+                                        onClick={() => viewCustomerDetails(customer.id)}
+                                        className="border-b border-gray-100 hover:bg-[#F9FCFC] cursor-pointer transition-colors group"
+                                    >
+                                        <td className="py-4 px-6">
+                                            <div className="flex items-center">
+                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#108587] to-[#17BCBE] flex items-center justify-center text-white font-bold mr-4 text-sm shadow-sm">
+                                                    {customer.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                  <span className="font-semibold text-gray-900 block">{customer.name}</span>
+                                                  <span className="text-xs text-gray-500 block truncate max-w-[150px]">{customer.address || "No address"}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-6 text-gray-600 font-medium">
+                                            {customer.phone}
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${
+                                                balance > 0
+                                                    ? 'bg-red-50 text-red-700 border border-red-100'
+                                                    : balance < 0
+                                                        ? 'bg-green-50 text-green-700 border border-green-100'
+                                                        : 'bg-gray-50 text-gray-600 border border-gray-200'
+                                            }`}>
+                                                Rs {balance.toLocaleString()}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 px-6 text-right">
+                                            <div className="flex gap-2 items-center justify-end">
+                                                <button
+                                                  onClick={(e) => openAddRecord(e, customer)}
+                                                  className="bg-[#108587] text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[#0e7274] transition-all shadow-sm cursor-pointer"
+                                                >
+                                                  Add Record
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleEdit(e, customer)}
+                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#108587] hover:bg-[#E8F8F9] transition-colors"
+                                                    title="Edit profile"
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleDeleteClick(e, customer)}
+                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                                <ChevronRight className="text-gray-300 group-hover:text-[#108587] transition-colors ml-2" size={20} />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                  </>
                 )}
             </div>
 
             {/* Pagination Controls */}
             {filteredCustomers.length > itemsPerPage && (
-                <div className="flex justify-center items-center mt-4 space-x-2">
-                    <button
-                        onClick={prevPage}
-                        disabled={currentPage === 1}
-                        className="px-4 py-2 bg-[#C9FEFF] text-[#108587] rounded-md hover:bg-[#bdfbfd] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                        Previous
-                    </button>
-                    <span className="text-gray-700">Page {currentPage} of {totalPages}</span>
-                    <button
-                        onClick={nextPage}
-                        disabled={currentPage === totalPages}
-                        className="px-4 py-2 bg-[#C9FEFF] text-[#108587] rounded-md hover:bg-[#bdfbfd] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                        Next
-                    </button>
+                <div className="flex justify-between items-center py-2 text-sm text-gray-500">
+                    <span>Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredCustomers.length)} of {filteredCustomers.length}</span>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1.5 border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 cursor-pointer"
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -606,14 +477,15 @@ function AddTheCustomer({ searchTerm = '' }) {
                 handleDeleteConfirm={handleDeleteConfirm}
             />
 
-            {/* Toast Notification */}
-            {toast.show && (
-                <div className="fixed z-50 bottom-4 right-4 bg-[#108587] text-white px-4 py-2 rounded-md shadow-lg animate-fade-in">
-                    {toast.message}
-                </div>
+            {/* Add Record Modal Popup */}
+            {recordModalCustomer && (
+              <AddRecordModal
+                isOpen={!!recordModalCustomer}
+                onClose={() => setRecordModalCustomer(null)}
+                customerId={recordModalCustomer.id}
+                customerName={recordModalCustomer.name}
+              />
             )}
         </div>
     );
 }
-
-export default AddTheCustomer;

@@ -1,394 +1,452 @@
 import React, { useState, useEffect, useContext, useMemo } from "react";
-import { customersApi, customerRecordsApi, deletedRecordsApi } from "../services/firebaseApi";
-import { FinancialContext } from '../contexts/FinancialContext';
+import { LoanContext } from "../contexts/LoanContext";
 import { customerDataDataContext } from "./CustomerContext";
 import AddRecordModal from "../components/AddRecordModal";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { format, subMonths, startOfYear, endOfYear } from "date-fns";
-import { Download, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import DeleteConfirmationModal from "../components/DeleteConfirmationModal";
+import { customerRecordsApi } from "../services/firebaseApi";
+
+const Skeleton = ({ className }) => (
+  <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
+);
 
 const FILTER_OPTIONS = [
-  { value: "all", label: "All Record" },
+  { value: "all", label: "All Records" },
   { value: "month", label: "Last Month" },
   { value: "sixMonths", label: "Last Six Months" },
   { value: "year", label: "Last Year" },
-  { value: "custom", label: "Custom" },
 ];
 
-function CustomerDetails({ embedded = false }) {
-  const [customers, setCustomers] = useState([]);
-  const [customerRecords, setCustomerRecords] = useState({});
-  const [customerBalances, setCustomerBalances] = useState({});
+export default function CustomerDetails({ embedded = false }) {
+  const { customers, deleteCustomer, getCustomerDues, getCustomerRecords, loading } = useContext(LoanContext);
+  const { setCustomerId } = useContext(customerDataDataContext); // For backwards compatibility if needed
+
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [filterPeriod, setFilterPeriod] = useState("all");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const { setCustomerData, setCustomerId } = useContext(customerDataDataContext);
+  
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Use the records from the shared context ledger directly
+  const rawRecords = useMemo(() => {
+    if (!selectedCustomerId) return [];
+    return getCustomerRecords(selectedCustomerId);
+  }, [selectedCustomerId, getCustomerRecords]);
+
   const adminId = localStorage.getItem("adminId");
 
-  const calculateCurrentBalance = (records) => {
-    return records.reduce((balance, record) => {
-      if (record.type === "send") return balance + (record.total_amount || 0);
-      if (record.type === "receive") return balance - (record.amount || 0);
-      return balance;
-    }, 0);
-  };
+  // Auto-select first customer if none selected
+  useEffect(() => {
+    if (customers.length > 0 && !selectedCustomerId) {
+      setSelectedCustomerId(customers[0].id);
+    }
+  }, [customers, selectedCustomerId]);
 
-  const calculateRunningBalance = (records, currentIndex) => {
-    return records.slice(0, currentIndex + 1).reduce((balance, record) => {
-      if (record.type === "send") return balance + (record.total_amount || 0);
-      if (record.type === "receive") return balance - (record.amount || 0);
-      return balance;
-    }, 0);
-  };
+  const selectedCustomer = useMemo(() => 
+    customers.find((c) => c.id === selectedCustomerId), 
+  [customers, selectedCustomerId]);
 
-  const getRecordDate = (record) => {
-    const t = record.created_at;
-    if (!t) return null;
-    return t.toDate ? t.toDate() : new Date(t);
-  };
+  // Current balance
+  const currentDues = useMemo(() => {
+    if (!selectedCustomerId) return 0;
+    return getCustomerDues(selectedCustomerId);
+  }, [selectedCustomerId, getCustomerDues]);
 
-  const filterRecords = (records, period, from, to) => {
+  // Analytics
+  const analytics = useMemo(() => {
+    if (!rawRecords || rawRecords.length === 0) return { totalPaid: 0, totalLoaned: 0, goodwillIndex: 0 };
+    let totalPaid = 0;
+    let totalLoaned = 0;
+    
+    rawRecords.forEach(record => {
+       const amt = Number(record.amount || record.total_amount || 0);
+       if (record.type === "product_send" || record.type === "purchase" || record.type === "send") {
+           totalLoaned += amt;
+       } else {
+           totalPaid += amt;
+       }
+    });
+
+    let goodwillIndex = 0;
+    if (totalLoaned > 0) {
+        const ratio = totalPaid / totalLoaned;
+        if (ratio >= 1) goodwillIndex = 5;
+        else if (ratio >= 0.8) goodwillIndex = 4;
+        else if (ratio >= 0.5) goodwillIndex = 3;
+        else if (ratio >= 0.2) goodwillIndex = 2;
+        else goodwillIndex = 1;
+    } else if (totalPaid > 0) {
+        goodwillIndex = 5;
+    }
+
+    return { totalPaid, totalLoaned, goodwillIndex };
+  }, [rawRecords]);
+
+  // Calculate chronological running balance by summing backwards from current absolute
+  // Since LoanContext orders records newest-first (descending timestamp),
+  // we iterate backwards from end of the array to beginning
+  const recordsWithRunningBalance = useMemo(() => {
+    if (!rawRecords || rawRecords.length === 0) return [];
+    
+    // Create a copy because we'll add the runningBalance property
+    const records = [...rawRecords].map(r => ({...r}));
+    
+    // Reverse logic: start with the absolute final balance from context
+    let runningBalance = currentDues;
+
+    // Traverse the array from newest (index 0) to oldest (index N)
+    for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        
+        // At this exact moment, the balance was runningBalance
+        record.runningBalance = runningBalance;
+        
+        // Now, undo the effect of THIS record so the NEXT iteration (older record) 
+        // has the correct balance from before this record occurred
+        const isAddingDues = record.type === "product_send" || record.type === "purchase" || record.type === "send";
+        const amt = Number(record.amount || record.total_amount || 0);
+
+        if (isAddingDues) {
+           // If they added dues, the balance BEFORE was lower
+           runningBalance -= amt;
+        } else {
+           // If they paid, the balance BEFORE was higher
+           runningBalance += amt;
+        }
+    }
+    
+    return records;
+  }, [rawRecords, currentDues]);
+
+  const filteredRecords = useMemo(() => {
     const now = new Date();
-    return (records || []).filter((record) => {
-      const recordDate = getRecordDate(record);
-      if (!recordDate) return false;
-      switch (period) {
+    return recordsWithRunningBalance.filter((record) => {
+      let recordDate = record.created_at;
+      if (recordDate && typeof recordDate.toDate === 'function') {
+         recordDate = recordDate.toDate();
+      } else {
+         recordDate = new Date(recordDate);
+      }
+      
+      if (!recordDate || isNaN(recordDate.getTime())) return true; // Keep old poorly formed records just in case
+
+      switch (filterPeriod) {
         case "month":
           return format(recordDate, "MM-yyyy") === format(now, "MM-yyyy");
         case "sixMonths":
           return recordDate >= subMonths(now, 6);
         case "year":
           return recordDate >= startOfYear(now) && recordDate <= endOfYear(now);
-        case "custom":
-          if (!from || !to) return true;
-          const fromDate = new Date(from + "T00:00:00");
-          const toDate = new Date(to + "T23:59:59");
-          return recordDate >= fromDate && recordDate <= toDate;
         default:
           return true;
       }
     });
-  };
+  }, [recordsWithRunningBalance, filterPeriod]);
 
-  const generatePDF = async (customer, records) => {
-    try {
-      const { jsPDF } = await import("jspdf");
-      const { autoTable } = await import("jspdf-autotable");
-      const filteredRecords = filterRecords(records || [], filterPeriod, customFrom, customTo)
-        .sort((a, b) => getRecordDate(b) - getRecordDate(a));
-      const doc = new jsPDF();
-      doc.setFontSize(18);
-      doc.text(`Customer Report - ${customer.name}`, 14, 15);
-      doc.setFontSize(12);
-      doc.text(`Generated on: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 25);
-      doc.text(`Phone: ${customer.phone}`, 14, 35);
-      doc.text(`Balance: Rs ${(customerBalances[customer.id] || 0).toLocaleString('en-PK')}`, 14, 45);
-      const tableData = filteredRecords.map((record, index) => {
-        const runningBalance = calculateRunningBalance(filteredRecords.slice().reverse(), filteredRecords.length - 1 - index);
-        return [
-          format(getRecordDate(record), "dd/MM/yyyy"),
-          record.type === "send" ? "Product Sent" : "Payment Received",
-          record.type === "send" ? `${record.product_name} x ${record.quantity}` : "Payment",
-          record.type === "receive" ? (record.payment_method || "").toUpperCase() : "-",
-          `Rs ${record.type === "send" ? Number(record.total_amount || 0).toLocaleString('en-PK') : Number(record.amount || 0).toLocaleString('en-PK')}`,
-          `Rs ${Number(runningBalance || 0).toLocaleString('en-PK')}`,
-        ];
-      });
-      autoTable(doc, {
-        head: [["Date", "Type", "Details", "Payment Method", "Amount", "Balance"]],
-        body: tableData,
-        startY: 55,
-        styles: { fontSize: 10, cellPadding: 3 },
-        columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 25 }, 2: { cellWidth: 40 }, 3: { cellWidth: 30 }, 4: { cellWidth: 25 }, 5: { cellWidth: 25 } },
-      });
-      doc.save(`${customer.name}_report_${format(new Date(), "dd-MM-yyyy")}.pdf`);
-      toast.success("Report downloaded successfully!");
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast.error("Failed to generate report");
-    }
-  };
-
-  const fetchCustomersAndRecords = async () => {
-    try {
-      const customersList = await customersApi.getByAdmin(adminId);
-      setCustomers(customersList);
-      setCustomerData(customersList);
-      if (customersList.length > 0 && !selectedCustomerId) setSelectedCustomerId(customersList[0].id);
-      for (const customer of customersList) {
-        const records = await customerRecordsApi.getByCustomerAndAdmin(customer.id, adminId);
-        setCustomerRecords((prev) => ({ ...prev, [customer.id]: records }));
-        setCustomerBalances((prev) => ({ ...prev, [customer.id]: calculateCurrentBalance(records) }));
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      toast.error("Failed to fetch customer data");
-    }
-  };
-
-  useEffect(() => {
-    fetchCustomersAndRecords();
-  }, []);
-
-  useEffect(() => {
-    if (customers.length > 0 && !selectedCustomerId) setSelectedCustomerId(customers[0].id);
-  }, [customers]);
-
-  const selectedCustomer = useMemo(() => customers.find((c) => c.id === selectedCustomerId), [customers, selectedCustomerId]);
-  const rawRecords = selectedCustomerId ? (customerRecords[selectedCustomerId] || []) : [];
-  const filteredRecords = useMemo(
-    () => filterRecords(rawRecords, filterPeriod, customFrom, customTo).sort((a, b) => getRecordDate(b) - getRecordDate(a)),
-    [rawRecords, filterPeriod, customFrom, customTo]
-  );
   const totalRows = filteredRecords.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
   const pageIndex = Math.min(currentPage, totalPages);
   const startIndex = (pageIndex - 1) * rowsPerPage;
-  const paginatedRecords = useMemo(() => filteredRecords.slice(startIndex, startIndex + rowsPerPage), [filteredRecords, startIndex, rowsPerPage]);
+  const paginatedRecords = useMemo(() => 
+    filteredRecords.slice(startIndex, startIndex + rowsPerPage), 
+  [filteredRecords, startIndex, rowsPerPage]);
 
-  const addRecord = () => {
-    if (selectedCustomerId) setShowAddModal(true);
-    else toast.info("Select a customer first");
+  const generatePDF = async () => {
+    if (!selectedCustomer) return;
+    try {
+      const { jsPDF } = await import("jspdf");
+      const { autoTable } = await import("jspdf-autotable");
+      
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.text(`Customer Report - ${selectedCustomer.name}`, 14, 15);
+      doc.setFontSize(12);
+      doc.text(`Generated on: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 25);
+      doc.text(`Phone: ${selectedCustomer.phone || "N/A"}`, 14, 35);
+      doc.text(`Remaining Dues: Rs ${currentDues.toLocaleString()}`, 14, 45);
+      
+      const tableData = filteredRecords.map((record) => {
+        let rDate = record.created_at?.toDate ? record.created_at.toDate() : new Date(record.created_at);
+        if (isNaN(rDate)) rDate = new Date();
+        
+        const isPurchase = record.type === "purchase" || record.type === "send" || record.type === "product_send";
+        return [
+          format(rDate, "dd/MM/yyyy"),
+          isPurchase ? "Added Dues" : "Received Payment",
+          isPurchase ? (record.product_name || record.description || "Product/Goods") : (record.payment_method || record.description || "Payment"),
+          `Rs ${Number(record.amount || record.total_amount || 0).toLocaleString()}`,
+          !isPurchase && record.clearance_date ? format(new Date(record.clearance_date), "dd/MM/yyyy") : "-",
+          `Rs ${Number(record.runningBalance || 0).toLocaleString()}`,
+        ];
+      });
+      
+      autoTable(doc, {
+        head: [["Date", "Type", "Dued Product / Method", "Amount", "Clearance Date", "Balance After"]],
+        body: tableData,
+        startY: 55,
+        styles: { fontSize: 10, cellPadding: 3 },
+      });
+      
+      doc.save(`${selectedCustomer.name}_report_${format(new Date(), "dd-MM-yyyy")}.pdf`);
+      toast.success("Report downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF. Make sure plugins are loaded.");
+    }
   };
 
-  const financial = React.useContext(FinancialContext);
-
-  const deleteCustomerAndRecords = async (customerIdToDelete) => {
+  const confirmDeleteCustomer = async () => {
+    if (!deletingId) return;
     try {
-      const isConfirmed = window.confirm("Are you sure you want to delete this customer and all their records? This action cannot be undone.");
-      if (!isConfirmed) return;
-      const customer = customers.find((c) => c.id === customerIdToDelete);
-      const records = customerRecords[customerIdToDelete] || [];
-      // Void receivables associated with this customer (audit + data integrity)
-      try {
-        await financial.voidReceivablesForCustomer({ admin_id: adminId, customer_id: customerIdToDelete, reason: 'Customer deleted with records' });
-      } catch (e) {
-        console.error('Failed to void receivables before deleting customer:', e);
-      }
-      await deletedRecordsApi.add({ type: "customer_with_records", admin_id: adminId, customerName: customer?.name, recordCount: records.length });
-      await customerRecordsApi.deleteByCustomer(customerIdToDelete, adminId);
-      await customersApi.delete(customerIdToDelete);
-      setCustomers((prev) => prev.filter((c) => c.id !== customerIdToDelete));
-      setCustomerRecords((prev) => {
-        const next = { ...prev };
-        delete next[customerIdToDelete];
-        return next;
-      });
-      setCustomerBalances((prev) => {
-        const next = { ...prev };
-        delete next[customerIdToDelete];
-        return next;
-      });
-      if (selectedCustomerId === customerIdToDelete) setSelectedCustomerId(customers.find((c) => c.id !== customerIdToDelete)?.id || "");
+      await deleteCustomer(deletingId);
       toast.success("Customer and all records deleted successfully!");
+      if (selectedCustomerId === deletingId) {
+        setSelectedCustomerId("");
+      }
+      setShowDeleteModal(false);
+      setDeletingId(null);
     } catch (error) {
-      console.error("Error deleting customer and records:", error);
-      toast.error("Error deleting customer. Please try again.");
+      console.error("Error:", error);
+      toast.error("Failed to delete customer");
     }
   };
 
   return (
     <div className={embedded ? "min-h-0" : "min-h-screen bg-gray-50 py-6 px-4"}>
-      <div className="max-w-6xl mx-auto">
-        {/* Customer selector */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-[#108587] mb-2">Customer</label>
-          <select
-            value={selectedCustomerId}
-            onChange={(e) => {
-              setSelectedCustomerId(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full max-w-md border border-[#20dbdf] rounded-lg px-4 py-2.5 bg-white focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE] text-gray-900"
-          >
-            <option value="">Select customer</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>{c.name} {c.phone ? ` – ${c.phone}` : ""}</option>
-            ))}
-          </select>
-        </div>
-
-        {!selectedCustomer ? (
-          <div className="bg-white rounded-xl shadow p-8 text-center text-gray-500 border border-[#E8F8F9]">
-            {customers.length === 0 ? "No customers found. Add customers from Home → Customer." : "Select a customer to view details."}
-          </div>
-        ) : (
-          <>
-            {/* Header: customer name */}
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">{selectedCustomer.name}</h1>
-
-            {/* Filter bar */}
-            <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        <div className="flex flex-col md:flex-row gap-4 items-end justify-between bg-white p-4 rounded-2xl shadow-sm border border-[#E8F8F9]">
+            <div className="w-full md:w-1/3">
+                <label className="block text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-tight ml-1">Select Customer Account</label>
+                <select
+                    value={selectedCustomerId}
+                    onChange={(e) => {
+                    setSelectedCustomerId(e.target.value);
+                    setCurrentPage(1);
+                    }}
+                    className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 bg-white focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] text-sm text-gray-900 transition-all outline-none cursor-pointer"
+                >
+                    <option value="">-- Choose Account --</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                          {c.name} {c.phone ? " (" + c.phone + ")" : ""}
+                      </option>
+                    ))}
+                </select>
+            </div>
+            
+            <div className="flex items-center gap-3">
               <select
                 value={filterPeriod}
                 onChange={(e) => {
                   setFilterPeriod(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="border border-[#20dbdf] rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-[#108587] focus:border-[#17BCBE]"
+                className="border border-[#20dbdf] rounded-lg px-3 py-2 bg-white text-xs font-bold text-gray-600 focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none cursor-pointer"
               >
                 {FILTER_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
-              {filterPeriod === "custom" && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <input
-                    type="date"
-                    value={customFrom}
-                    onChange={(e) => setCustomFrom(e.target.value)}
-                    className="border border-[#20dbdf] rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-[#108587]"
-                  />
-                  <span className="text-gray-500">to</span>
-                  <input
-                    type="date"
-                    value={customTo}
-                    onChange={(e) => setCustomTo(e.target.value)}
-                    className="border border-[#20dbdf] rounded-lg px-3 py-2 text-gray-900 focus:ring-2 focus:ring-[#108587]"
-                  />
-                </div>
-              )}
               <button
                 type="button"
-                onClick={() => generatePDF(selectedCustomer, rawRecords)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#108587] text-white rounded-lg hover:bg-[#0e7274] transition-colors font-medium"
+                onClick={generatePDF}
+                disabled={!selectedCustomer || filteredRecords.length === 0}
+                className="inline-flex items-center gap-2 px-5 py-2 bg-white border border-[#108587] text-[#108587] rounded-lg hover:bg-[#108587]/5 transition-all text-xs font-bold disabled:opacity-30 shadow-sm cursor-pointer"
               >
-                <Download size={18} />
-                Download Report
-              </button>
-              <button
-                type="button"
-                onClick={addRecord}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#108587] text-white hover:bg-[#0e7274] transition-colors"
-                aria-label="Add record"
-              >
-                <Plus size={22} />
-              </button>
-              <button
-                type="button"
-                onClick={() => deleteCustomerAndRecords(selectedCustomer.id)}
-                className="ml-auto px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Delete customer & records
+                <Download size={16} />
+                <span>Export PDF</span>
               </button>
             </div>
+        </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-xl shadow overflow-hidden border border-[#E8F8F9]">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-[#E8F8F9]">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase tracking-wider">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase tracking-wider">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase tracking-wider">Details</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase tracking-wider">Payment Method</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase tracking-wider">Amount</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[#108587] uppercase tracking-wider">Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedRecords.length === 0 ? (
+        {!selectedCustomer ? (
+          <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-100">
+            <div className="text-gray-400 mb-3 flex justify-center"><ChevronRight size={40}/></div>
+            <h3 className="text-lg font-medium text-gray-900">No Account Selected</h3>
+            <p className="text-gray-500 mt-1">
+              Select a customer from the dropdown above to view their financial ledger and records.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            {/* Sidebar Profile Card */}
+            <div className="col-span-1 border border-gray-100 bg-white rounded-xl shadow-sm p-6 flex flex-col items-center text-center h-fit">
+               <div className="w-20 h-20 bg-[#E8F8F9] text-[#108587] rounded-full flex justify-center items-center text-2xl font-bold mb-4">
+                  {selectedCustomer.name.charAt(0).toUpperCase()}
+               </div>
+               <h2 className="text-xl font-bold text-gray-900">{selectedCustomer.name}</h2>
+               <p className="text-sm text-gray-500 mt-1">{selectedCustomer.phone || "No Phone Number"}</p>
+               <p className="text-sm text-gray-500">{selectedCustomer.address || "No Address"}</p>
+               
+               <div className="w-full my-6 border-t border-gray-100"></div>
+               
+               <p className="text-sm font-medium text-gray-600 w-full text-left">Current Outstanding Dues</p>
+               {loading ? (
+                   <Skeleton className="h-9 w-32 mt-1" />
+               ) : (
+                   <p className={`text-3xl font-bold w-full text-left mt-1 ${currentDues > 0 ? "text-red-600" : "text-gray-900"}`}>
+                     Rs {currentDues.toLocaleString()}
+                   </p>
+               )}
+
+               <div className="w-full flex justify-between mt-4 text-sm">
+                  <span className="text-gray-500">Total Paid:</span>
+                  {loading ? <Skeleton className="h-5 w-20" /> : <span className="font-semibold text-green-600">Rs {analytics.totalPaid.toLocaleString()}</span>}
+               </div>
+               <div className="w-full flex justify-between mt-1 text-sm">
+                  <span className="text-gray-500">Total Loaned:</span>
+                  {loading ? <Skeleton className="h-5 w-20" /> : <span className="font-semibold text-red-600">Rs {analytics.totalLoaned.toLocaleString()}</span>}
+               </div>
+               
+               <div className="w-full mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center justify-between">
+                  <span className="text-sm font-medium text-[#108587]">Goodwill Index</span>
+                  <div className="flex text-yellow-400">
+                     {loading ? (
+                         <Skeleton className="h-4 w-24" />
+                     ) : (
+                         [...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < analytics.goodwillIndex ? "fill-current" : "text-gray-300 fill-current"}`} viewBox="0 0 20 20">
+                               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                            </svg>
+                         ))
+                     )}
+                  </div>
+               </div>
+               
+               <button
+                  onClick={() => setShowAddModal(true)}
+                  className="w-full mt-6 py-2.5 bg-[#108587] text-white rounded-lg flex items-center justify-center gap-2 hover:bg-[#0e7274] shadow-lg shadow-[#108587]/20 transition-all font-bold text-sm active:scale-95 cursor-pointer"
+               >
+                 <Plus size={18} />
+                 New Record
+               </button>
+               
+               <button
+                  onClick={() => {
+                    setDeletingId(selectedCustomer.id);
+                    setShowDeleteModal(true);
+                  }}
+                  className="w-full mt-3 py-2 text-red-500 border border-red-50 rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-all font-bold text-xs cursor-pointer"
+               >
+                 <Trash2 size={16} />
+                 Delete Account
+               </button>
+            </div>
+            
+            {/* Main Ledger Table */}
+            <div className="col-span-1 lg:col-span-3">
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-[#E8F8F9]">
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                          No records in this period.
-                        </td>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-[#108587] uppercase tracking-wider">Date of Deal</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-[#108587] uppercase tracking-wider">Type</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-[#108587] uppercase tracking-wider">Item / $ Mode</th>
+                        <th className="px-5 py-3 text-right text-xs font-semibold text-[#108587] uppercase tracking-wider">Amount Due</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-[#108587] uppercase tracking-wider">Clearance Date</th>
+                        <th className="px-5 py-3 text-right text-xs font-semibold text-[#108587] uppercase tracking-wider">Balance After</th>
                       </tr>
-                    ) : (
-                      paginatedRecords.map((record, indexInPage) => {
-                        const indexInFiltered = startIndex + indexInPage;
-                        const runningBalance = calculateRunningBalance(filteredRecords.slice().reverse(), filteredRecords.length - 1 - indexInFiltered);
-                        const recordDate = getRecordDate(record);
-                        return (
-                          <tr key={record.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {recordDate ? format(recordDate, "dd/MM/yyyy") : "-"}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <span
-                                className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                  record.type === "send" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
-                                }`}
-                              >
-                                {record.type === "send" ? "Product Send" : "Payment Receive"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                              {record.type === "send" ? `${record.product_name || "-"} X ${record.quantity ?? 0}` : "Payment"}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                              {record.type === "receive" ? (record.payment_method || "—").toUpperCase() : "—"}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                              Rs {Number(record.type === "send" ? record.total_amount : record.amount).toLocaleString('en-PK')}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                              <span className={runningBalance > 0 ? "text-red-600" : "text-green-600"}>Rs {Number(runningBalance || 0).toLocaleString('en-PK')}</span>
-                            </td>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                  {loading && paginatedRecords.length === 0 ? (
+                      [...Array(5)].map((_, i) => (
+                          <tr key={i}>
+                              <td className="px-5 py-4"><Skeleton className="h-4 w-20" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-4 w-16" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-4 w-32" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-4 w-20" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
                           </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ))
+                  ) : paginatedRecords.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-10 text-center text-gray-500">
+                            No matching records found.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedRecords.map((record) => {
+                          let recordDate = record.created_at?.toDate ? record.created_at.toDate() : new Date(record.created_at);
+                          if (isNaN(recordDate)) recordDate = new Date(); // fallback
+                          
+                          // Convert type securely
+                          const isAddingDues = record.type === "purchase" || record.type === "send" || record.type === "product_send";
+                          const recordAmount = Number(record.amount || record.total_amount || 0);
 
-              {/* Pagination */}
-              {totalRows > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-gray-50 border-t border-gray-200">
-                  <div className="text-sm text-gray-600">
-                    {startIndex + 1}-{Math.min(startIndex + rowsPerPage, totalRows)} of {totalRows}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600">Rows per page:</span>
-                      <select
-                        value={rowsPerPage}
-                        onChange={(e) => {
-                          setRowsPerPage(Number(e.target.value));
-                          setCurrentPage(1);
-                        }}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm text-gray-900 bg-white"
-                      >
-                        {[5, 10, 25, 50].map((n) => (
-                          <option key={n} value={n}>{n}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={pageIndex <= 1}
-                        className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700"
-                        aria-label="Previous page"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                      <span className="text-sm text-gray-700 px-2">
-                        {pageIndex} / {totalPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={pageIndex >= totalPages}
-                        className="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700"
-                        aria-label="Next page"
-                      >
-                        <ChevronRight size={20} />
-                      </button>
-                    </div>
-                  </div>
+                          return (
+                            <tr key={record.id} className="hover:bg-gray-50/50">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {format(recordDate, "dd MMM yyyy, hh:mm a")}
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-semibold ${
+                                    isAddingDues ? "bg-red-50 text-red-700 border border-red-100" : "bg-green-50 text-green-700 border border-green-100"
+                                  }`}
+                                >
+                                  {isAddingDues ? "Dues Added" : "Payment Received"}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-sm text-gray-900 max-w-[200px] truncate">
+                                {isAddingDues ? (record.product_name || record.description || "Product/Goods") : (record.payment_method || record.description || "Payment")}
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">
+                                {isAddingDues ? "+" : "-"} Rs {recordAmount.toLocaleString()}
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
+                                {!isAddingDues && record.clearance_date ? format(new Date(record.clearance_date), "dd MMM yyyy") : "-"}
+                              </td>
+                              <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <span className={record.runningBalance > 0 ? "text-red-700" : "text-green-700"}>
+                                  Rs {(record.runningBalance || 0).toLocaleString()}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+  
+                {/* Pagination */}
+                {totalRows > 0 && (
+                  <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-t border-gray-100">
+                    <div className="text-sm text-gray-500">
+                      Showing {startIndex + 1}-{Math.min(startIndex + rowsPerPage, totalRows)} of {totalRows} records
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <button
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          disabled={pageIndex <= 1}
+                          className="p-1 rounded-md hover:bg-gray-200 disabled:opacity-50 text-gray-600 transition"
+                        >
+                          <ChevronLeft size={20} />
+                        </button>
+                        <span className="text-sm font-medium text-gray-700 px-2 lg:px-4">{pageIndex} / {totalPages}</span>
+                        <button
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={pageIndex >= totalPages}
+                          className="p-1 rounded-md hover:bg-gray-200 disabled:opacity-50 text-gray-600 transition"
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </>
+            
+          </div>
         )}
       </div>
 
@@ -397,10 +455,20 @@ function CustomerDetails({ embedded = false }) {
         onClose={() => setShowAddModal(false)}
         customerId={selectedCustomerId}
         customerName={selectedCustomer?.name}
-        onSuccess={fetchCustomersAndRecords}
       />
+      
+      {showDeleteModal && (
+        <DeleteConfirmationModal
+            isOpen={showDeleteModal}
+            onClose={() => {
+              setShowDeleteModal(false);
+              setDeletingId(null);
+            }}
+            onConfirm={confirmDeleteCustomer}
+            title="Delete Customer Account"
+            message={`Are you sure you want to permanently delete ${selectedCustomer?.name}? This will securely erase all their historical ledger records.`}
+        />
+      )}
     </div>
   );
 }
-
-export default CustomerDetails;
