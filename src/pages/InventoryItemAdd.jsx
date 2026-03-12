@@ -3,6 +3,7 @@ import { inventoryApi } from '../services/firebaseApi';
 import InventoryProducts from '../components/InventoryProducts';
 import { AdminDataContext } from './AdminContext';
 import { toast } from 'react-toastify';
+import { PackagePlus, User, ClipboardList, Info, CircleHelp } from 'lucide-react';
 import 'react-toastify/dist/ReactToastify.css';
 
 function InventoryItemAdd({ embedded = false }) {
@@ -74,71 +75,121 @@ function InventoryItemAdd({ embedded = false }) {
 
     return (
         <>
-            <div className={embedded ? "min-h-0 flex flex-col items-center py-2 md:py-2" : "min-h-screen bg-gray-100 flex flex-col items-center py-12"}>
-                <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl border border-[#E8F8F9] p-6 sm:p-8 mb-6">
-                    <h2 className="text-xl font-bold text-[#108587] mb-6">Add Inventory Batch</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Product Name *</label>
-                            <input 
-                                value={productName} 
-                                onChange={(e) => setProductName(e.target.value)} 
-                                placeholder="Enter product name..."
-                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
-                            />
+        <div className={embedded ? "w-full overflow-visible" : "min-h-screen w-full pb-20 bg-transparent flex flex-col items-center relative overflow-hidden"}>
+            {!embedded && (
+                <>
+                    {/* Artistic Background Decor */}
+                    <div className="absolute top-20 -left-20 w-80 h-80 bg-[#108587]/5 rounded-full blur-[100px] animate-float pointer-events-none" />
+                    <div className="absolute bottom-20 -right-20 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] animate-pulse-slow pointer-events-none" />
+                </>
+            )}
+
+            <div className={embedded ? "w-full" : "max-w-2xl w-full px-6 pt-10 relative z-10"}>
+                <div className="glass-card rounded-3xl border border-white/60 hover:border-[#20dbdf]/30 shadow-[0_0_50px_rgba(0,0,0,0.12)] overflow-hidden transition-all duration-500">
+                    <div className="bg-gradient-to-r from-[#108587]/10 to-transparent px-7 py-5 border-b border-white/40 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-[#108587] rounded-xl flex items-center justify-center text-white shadow-lg shadow-[#108587]/20">
+                            <PackagePlus size={20} />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Quantity *</label>
-                            <input 
-                                type="number" 
-                                value={quantity} 
-                                onChange={(e) => setQuantity(e.target.value)} 
-                                placeholder="0"
-                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
-                            />
+                            <h2 className="text-xl font-bold text-slate-800 tracking-tight">Add Inventory Batch</h2>
+                            <p className="text-gray-400 font-bold text-[9px] uppercase tracking-widest">Update stock records</p>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Unit Price (Rs)</label>
-                            <input 
-                                type="number" 
-                                value={price} 
-                                onChange={(e) => setPrice(e.target.value)} 
-                                placeholder="0"
-                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Vendor (Optional)</label>
-                            <input 
-                                value={vendorName} 
-                                onChange={(e) => setVendorName(e.target.value)} 
-                                placeholder="Supplier name..."
-                                className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 text-sm focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none" 
-                            />
-                        </div>
-                        <div className="md:col-span-2 flex items-center gap-3 py-2">
-                            <input 
-                                id="onAccount" 
-                                type="checkbox" 
-                                checked={onAccount} 
-                                onChange={(e) => setOnAccount(e.target.checked)}
-                                className="w-4 h-4 text-[#108587] border border-[#20dbdf] rounded-lg focus:ring-[#108587] cursor-pointer" 
-                            />
-                            <label htmlFor="onAccount" className="text-sm font-medium text-gray-600 cursor-pointer">Purchase On Account</label>
-                        </div>
-                        <div className="md:col-span-2 flex justify-end pt-4 mt-2 border-t border-gray-50">
-                            <button 
-                                onClick={addInventoryItem} 
-                                className="px-8 py-2.5 bg-[#108587] text-white text-sm font-bold rounded-lg hover:bg-[#0e7274] shadow-lg shadow-[#108587]/20 transition-all active:scale-95 cursor-pointer"
-                            >
-                                {updatedData ? "Update Inventory" : "Save Inventory"}
-                            </button>
+                    </div>
+
+                    <div className="p-7 sm:p-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                            <div className="md:col-span-2 group">
+                                <label className="flex items-center gap-2 text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-[0.2em] transition-colors">
+                                    <ClipboardList size={12} />
+                                    Product Name *
+                                </label>
+                                <input 
+                                    value={productName} 
+                                    onChange={(e) => setProductName(e.target.value)} 
+                                    placeholder="e.g. Premium Cotton Finish"
+                                    className="w-full bg-white/70 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none placeholder:text-gray-300 shadow-sm" 
+                                />
+                            </div>
+
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-[0.2em] transition-colors">
+                                    <Info size={12} />
+                                    Initial Quantity *
+                                </label>
+                                <input 
+                                    type="number" 
+                                    value={quantity} 
+                                    onChange={(e) => setQuantity(e.target.value)} 
+                                    placeholder="0"
+                                    className="w-full bg-white/70 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none shadow-sm" 
+                                />
+                            </div>
+
+                            <div className="group">
+                                <label className="flex items-center gap-2 text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-[0.2em] transition-colors">
+                                    Rs
+                                    Base Unit Price
+                                </label>
+                                <input 
+                                    type="number" 
+                                    value={price} 
+                                    onChange={(e) => setPrice(e.target.value)} 
+                                    placeholder="0"
+                                    className="w-full bg-white/70 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none shadow-sm" 
+                                />
+                            </div>
+
+                            <div className="md:col-span-2 group">
+                                <label className="flex items-center gap-2 text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-[0.2em] transition-colors">
+                                    <User size={12} />
+                                    Vendor / Supplier (Optional)
+                                </label>
+                                <input 
+                                    value={vendorName} 
+                                    onChange={(e) => setVendorName(e.target.value)} 
+                                    placeholder="Enter vendor name..."
+                                    className="w-full bg-white/70 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none placeholder:text-gray-300 shadow-sm" 
+                                />
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="relative inline-flex items-center cursor-pointer group mt-1">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={onAccount} 
+                                        onChange={(e) => setOnAccount(e.target.checked)}
+                                        className="sr-only peer" 
+                                    />
+                                    <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#108587]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-[#108587]"></div>
+                                    <span className="ml-3 text-[10px] font-bold text-[#108587] uppercase tracking-widest group-hover:text-slate-700 transition-colors">Purchase On Account</span>
+                                </label>
+                            </div>
+
+                            <div className="md:col-span-2 flex justify-end pt-6 mt-2 border-t border-white/40">
+                                <button 
+                                    onClick={addInventoryItem} 
+                                    className="px-8 py-3.5 bg-gradient-to-br from-[#108587] to-[#14a3a6] text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-xl shadow-[#108587]/20 hover:scale-[1.02] hover:shadow-2xl transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                                >
+                                    <PackagePlus size={16} />
+                                    {updatedData ? "Update Record" : "Save Batch"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <InventoryProducts ref={inventoryProductsRef} />
+                {!embedded && (
+                    <div className="mt-16 w-full">
+                         <div className="flex items-center gap-4 mb-8 px-4">
+                            <div className="h-px bg-white/40 flex-1"></div>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Quick View Overview</span>
+                            <div className="h-px bg-white/40 flex-1"></div>
+                         </div>
+                         <InventoryProducts ref={inventoryProductsRef} />
+                    </div>
+                )}
             </div>
+        </div>
         </>
     );
 }

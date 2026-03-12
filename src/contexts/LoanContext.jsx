@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useState, useEffect, useRef } from 'react';
 import { customersApi, customerRecordsApi, auditApi } from '../services/firebaseApi';
+import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 
 export const LoanContext = createContext();
@@ -98,7 +99,11 @@ export default function LoanProvider({ children }) {
         throw new Error('Missing required transaction fields');
       }
 
-      const created_at = transactionDate ? new Date(transactionDate + 'T12:00:00') : new Date();
+      // If transactionDate is today, use "new Date()" to capture real current hour/minute
+      const isToday = transactionDate === format(new Date(), "yyyy-MM-dd");
+      const created_at = transactionDate 
+        ? (isToday ? new Date() : new Date(transactionDate + 'T12:00:00')) 
+        : new Date();
       
       // Determine transaction amount and type label
       let transactionAmount = 0;

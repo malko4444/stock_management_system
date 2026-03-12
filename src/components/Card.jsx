@@ -42,61 +42,79 @@ const Card = ({ item, onEdit, onDelete }) => {
 
   return (
     <>
-      <div className="bg-white w-full max-w-[351px] rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-[#E8F8F9]">
-        <div className="p-6">
-          {/* Header with product name and status */}
-          <div className="flex justify-between items-start mb-4 gap-2">
-            <h3 className="text-xl font-semibold text-[#108587] truncate flex-1">
-              {item.productName}
-            </h3>
-            <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-xs font-medium shrink-0 ${
-              item.quantity > 0 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-red-100 text-red-800'
-            }`}>
-              {item.quantity > 0 ? 'In Stock' : 'Out of Stock'}
-            </span>
-          </div>
-          
-          {/* Product details */}
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Quantity:</span>
-              <span className="font-semibold text-gray-800 text-sm">
-                {Number(item.quantity).toLocaleString()} {item.quantity === 1 ? 'unit' : 'units'}
-              </span>
-            </div>
-            {item.price != null && Number(item.price) !== 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Price/unit:</span>
-                <span className="font-semibold text-gray-800 text-sm">Rs {Number(item.price).toLocaleString()}</span>
+      <div className="group relative h-full">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#108587]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl -m-0.5 blur-xl" />
+        <div className="glass-card w-full h-full rounded-2xl relative overflow-hidden transition-all duration-500 hover:translate-y-[-2px] hover:shadow-2xl border border-white/60 flex flex-col">
+          <div className="p-6 flex-1 flex flex-col">
+            {/* Header with product name and status */}
+            <div className="flex justify-between items-start mb-6 gap-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold text-[#108587] truncate tracking-tight mb-0.5">
+                  {item.productName}
+                </h3>
+                <div className="flex items-center gap-1.5 text-gray-400">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] pl-0.5">Stock Item</span>
+                </div>
               </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-600">Added:</span>
-              <span className="font-semibold text-gray-800 text-sm">
-                {formatDate(item.createdAt)}
+              <span className={`inline-flex items-center px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider shrink-0 shadow-sm ${
+                item.quantity > 0 
+                  ? 'bg-emerald-50 text-[#108587] border border-[#108587]/10' 
+                  : 'bg-red-50 text-red-600 border border-red-100'
+              }`}>
+                {item.quantity > 0 ? 'In Stock' : 'Out of Stock'}
               </span>
             </div>
-          </div>
-          
-          {/* Action buttons */}
-          <div className="mt-4 flex justify-end space-x-2">
-            <button
-              onClick={handleEditClick}
-              className="px-2 py-1 bg-[#C9FEFF] text-blue-600 rounded-sm hover:bg-blue-100 transition-colors text-[12px] font-sm cursor-pointer"
-              aria-label={`Edit ${item.productName}`}
-            >
-              Edit
-            </button>
-            <button
-              onClick={handleDeleteClick}
-              className="px-3 py-1.2 bg-[#FFE7E7] text-red-600 rounded-sm hover:bg-red-100 
-              transition-colors text-[12px] font-sm cursor-pointer"
-              aria-label={`Delete ${item.productName}`}
-            >
-              Delete
-            </button>
+            
+            {/* Product details */}
+            <div className="space-y-3 mb-8 flex-1">
+              <div className="group/item flex justify-between items-center bg-white/50 p-1.5 rounded-xl bg-gradient-to-l from-[#108587]/5 to-[#108587]/20  transition-colors hover:bg-white/80">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 bg-[#108587] rounded-lg flex items-center justify-center text-white">
+                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    </div>
+                    <span className="text-[9px] font-bold text-[#108587] uppercase tracking-widest">Qty</span>
+                </div>
+                <span className="text-md font-bold text-[#108587] pr-1">
+                  {Number(item.quantity).toLocaleString()} <span className="text-[10px] text-[#108587] font-medium ml-0.5">{item.quantity === 1 ? 'unit' : 'units'}</span>
+                </span>
+              </div>
+
+              {item.price != null && Number(item.price) !== 0 && (
+                <div className="group/item flex justify-between items-center bg-gradient-to-l from-[#108587]/5 to-[#108587]/20 p-1.5 rounded-xl  transition-colors">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 bg-[#108587] rounded-lg flex items-center justify-center text-white">
+                         <span className="text-[10px] font-bold">Rs</span>
+                    </div>
+                    <span className="text-[9px] font-bold text-[#108587] uppercase tracking-widest">Price</span>
+                  </div>
+                  <span className="text-md font-bold text-[#108587] pr-1">Rs {Number(item.price).toLocaleString()}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center px-1.5 py-0.5">
+                <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">Updated</span>
+                <span className="text-[10px] font-semibold text-gray-400">
+                  {formatDate(item.createdAt)}
+                </span>
+              </div>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex gap-2.5 mt-auto">
+              <button
+                onClick={handleEditClick}
+                className="flex-1 py-2 bg-gradient-to-br from-[#108587] to-[#14a3a6] text-white font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-[#bdfbfd] transition-all cursor-pointer active:scale-95 shadow-sm shadow-[#108587]/5 flex items-center justify-center gap-2"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                Edit
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                className="px-4 py-2.5 bg-gradient-to-br from-[#FFC0C0] to-[#FFE7E3] text-[#DC2626] font-bold text-[10px] uppercase tracking-widest rounded-lg hover:bg-[#fddada] transition-all cursor-pointer active:scale-95 shadow-sm shadow-red-100/50 flex items-center justify-center"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -110,25 +128,30 @@ const Card = ({ item, onEdit, onDelete }) => {
           />
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <div 
-              className="w-[350px] mx-auto p-6 border border-gray-300 rounded-lg shadow-xl bg-white"
+              className="w-full max-w-sm mx-auto p-8 glass-card rounded-2xl shadow-2xl border border-white/60 animate-scale-up text-center"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-xl font-semibold mb-4 text-center text-[#108587]">
-                Confirm Delete
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-600 mx-auto mb-6 shadow-inner">
+                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                 </svg>
+              </div>
+              <h3 className="text-2xl font-bold mb-2 text-slate-800">
+                Are you sure?
               </h3>
-              <p className="mb-6 text-center">Are you sure you want to delete this product?</p>
-              <div className="flex justify-center space-x-3">
-                <button
-                  onClick={cancelDelete}
-                  className="px-4 py-2 text-[#DC2626] rounded-md bg-[#FFE7E7] hover:bg-[#fddada] transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
+              <p className="text-gray-500 font-medium mb-8">This action cannot be undone. This product will be removed from your active stock.</p>
+              <div className="flex flex-col gap-3">
                 <button
                   onClick={confirmDelete}
-                  className="px-4 py-2 bg-[#C9FEFF] text-[#108587] rounded-md hover:bg-[#bdfbfd] transition-colors cursor-pointer"
+                  className="w-full py-3 bg-[#FFE7E7] text-[#DC2626] font-bold rounded-xl hover:bg-[#fddada] transition-all cursor-pointer active:scale-95 shadow-sm shadow-red-100/50"
                 >
-                  Delete
+                  Yes, Remove Item
+                </button>
+                <button
+                  onClick={cancelDelete}
+                  className="w-full py-3 bg-[#C9FEFF] text-[#108587] font-bold rounded-xl hover:bg-[#bdfbfd] transition-all cursor-pointer active:scale-95"
+                >
+                  Keep Product
                 </button>
               </div>
             </div>

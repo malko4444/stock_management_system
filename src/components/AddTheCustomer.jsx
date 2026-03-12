@@ -332,7 +332,7 @@ export default function CustomersList({ searchTerm = '' }) {
                 </div>
                 <button
                     onClick={() => { setModalType("add"); setShowModal(true); }}
-                    className="flex items-center gap-2 bg-[#108587] text-white px-4 py-2 rounded-lg hover:bg-[#0e7274] transition-colors shadow-sm cursor-pointer"
+                    className="flex items-center gap-2 bg-gradient-to-br from-[#108587] to-[#14a3a6]  text-white px-4 py-2 rounded-lg hover:bg-[#0e7274] transition-colors shadow-sm cursor-pointer"
                 >
                     <Plus size={18} />
                     Add Customer

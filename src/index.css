@@ -13,9 +13,9 @@
       background-color: transparent !important;
     }
 
-    html {
+    html, body {
       scroll-behavior: smooth;
-      scrollbar-gutter: stable;
+      overflow-x: hidden;
     }
 
     /* Custom Scrollbar Styles */
@@ -64,5 +64,31 @@
       outline: none;
       border-color: #108587;
       box-shadow: 0 0 0 2px rgba(16, 133, 135, 0.2);
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes rotate-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+
+    .animate-rotate-slow {
+      animation: rotate-slow 12s linear infinite;
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 10px 40px -10px rgba(31, 38, 135, 0.15);
     }
   }

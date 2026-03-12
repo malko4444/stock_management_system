@@ -16,7 +16,7 @@ const menuItems = [
     name: "Inventory",
     icon: <LayoutDashboard size={20} />,
     component: "inventory",
-    subItems: [{ name: "Add Item", icon: <PackagePlus size={20} />, component: "inventory-item" }],
+    subItems: [{ name: "Update Items", icon: <PackagePlus size={20} />, component: "inventory-item" }],
   },
   {
     name: "Customers",
@@ -37,7 +37,7 @@ function findSelectedName(activeComponent) {
       }
     }
   }
-  return "Inventory";
+  return "Update Items";
 }
 
 const Sidebar = ({ activeComponent, setActiveComponent, isCollapsed, setIsCollapsed }) => {

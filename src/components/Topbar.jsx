@@ -80,7 +80,7 @@ const Topbar = ({ onSearch, searchType = "products", showSearch = true }) => {
         </button>
 
         {isDropdownOpen && (
-          <div className="absolute right-0 mt-2 w-44 bg-white border border-[#17BCBE] rounded-lg shadow-lg">
+          <div className="absolute z-17 right-0 mt-2 w-44 bg-white border border-[#17BCBE] rounded-lg shadow-lg">
             <ul className="py-2">
               <li className="px-4 py-2 hover:bg-[#E8F8F9] cursor-pointer text-[#108587]">Profile</li>
               {user ? (

@@ -161,24 +161,85 @@ export default function CustomerDetails({ embedded = false }) {
     if (!selectedCustomer) return;
     try {
       const { jsPDF } = await import("jspdf");
-      const { autoTable } = await import("jspdf-autotable");
+      const autoTable = (await import("jspdf-autotable")).default;
       
       const doc = new jsPDF();
-      doc.setFontSize(18);
-      doc.text(`Customer Report - ${selectedCustomer.name}`, 14, 15);
-      doc.setFontSize(12);
-      doc.text(`Generated on: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 25);
-      doc.text(`Phone: ${selectedCustomer.phone || "N/A"}`, 14, 35);
-      doc.text(`Remaining Dues: Rs ${currentDues.toLocaleString()}`, 14, 45);
+      const brandColor = [16, 133, 135]; // #108587
+      
+      // Header Section
+      doc.setFontSize(22);
+      doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
+      doc.setFont("helvetica", "bold");
+      doc.text("STOCK EASE", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "normal");
+      doc.text("Financial Ledger Report", 14, 26);
+      
+      // Date & Info (Right Aligned)
+      const pageWidth = doc.internal.pageSize.getWidth();
+      doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - 14, 20, { align: "right" });
+      
+      // Divider
+      doc.setDrawColor(232, 248, 249);
+      doc.line(14, 32, pageWidth - 14, 32);
+      
+      // Customer Info
+      doc.setFontSize(14);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont("helvetica", "bold");
+      doc.text(selectedCustomer.name, 14, 42);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Phone: ${selectedCustomer.phone || "N/A"}`, 14, 48);
+      
+      // Summary Cards (Color Blocks)
+      const summaryY = 55;
+      const cardWidth = (pageWidth - 28 - 10) / 3;
+      
+      // Outstanding Card
+      doc.setFillColor(255, 231, 231); // Soft Red
+      doc.roundedRect(14, summaryY, cardWidth, 18, 2, 2, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(185, 28, 28);
+      doc.text("PENDING DUES", 18, summaryY + 6);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Rs ${currentDues.toLocaleString()}`, 18, summaryY + 13);
+      
+      // Total Loaned
+      doc.setFillColor(243, 244, 246);
+      doc.roundedRect(14 + cardWidth + 5, summaryY, cardWidth, 18, 2, 2, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(75, 85, 99);
+      doc.setFont("helvetica", "normal");
+      doc.text("TOTAL LOANED", 14 + cardWidth + 9, summaryY + 6);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Rs ${analytics.totalLoaned.toLocaleString()}`, 14 + cardWidth + 9, summaryY + 13);
+      
+      // Total Paid
+      doc.setFillColor(232, 248, 249); // Brand Light
+      doc.roundedRect(14 + (cardWidth + 5) * 2, summaryY, cardWidth, 18, 2, 2, "F");
+      doc.setFontSize(8);
+      doc.setTextColor(16, 133, 135);
+      doc.setFont("helvetica", "normal");
+      doc.text("TOTAL PAID", 14 + (cardWidth + 5) * 2 + 4, summaryY + 6);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Rs ${analytics.totalPaid.toLocaleString()}`, 14 + (cardWidth + 5) * 2 + 4, summaryY + 13);
       
       const tableData = filteredRecords.map((record) => {
         let rDate = record.created_at?.toDate ? record.created_at.toDate() : new Date(record.created_at);
-        if (isNaN(rDate)) rDate = new Date();
+        if (isNaN(rDate.getTime())) rDate = new Date();
         
         const isPurchase = record.type === "purchase" || record.type === "send" || record.type === "product_send";
         return [
-          format(rDate, "dd/MM/yyyy"),
-          isPurchase ? "Added Dues" : "Received Payment",
+          format(rDate, "dd/MM/yyyy, hh:mm a"),
+          isPurchase ? "Dues Added" : "Payment Received",
           isPurchase ? (record.product_name || record.description || "Product/Goods") : (record.payment_method || record.description || "Payment"),
           `Rs ${Number(record.amount || record.total_amount || 0).toLocaleString()}`,
           !isPurchase && record.clearance_date ? format(new Date(record.clearance_date), "dd/MM/yyyy") : "-",
@@ -187,14 +248,35 @@ export default function CustomerDetails({ embedded = false }) {
       });
       
       autoTable(doc, {
-        head: [["Date", "Type", "Dued Product / Method", "Amount", "Clearance Date", "Balance After"]],
+        head: [["Date", "Type", "Details", "Amount", "Clearance", "Balance"]],
         body: tableData,
-        startY: 55,
-        styles: { fontSize: 10, cellPadding: 3 },
+        startY: 80,
+        theme: "striped",
+        headStyles: { 
+          fillColor: brandColor, 
+          textColor: 255, 
+          fontSize: 9, 
+          fontStyle: "bold",
+          halign: "left"
+        },
+        columnStyles: {
+          3: { halign: "right" },
+          5: { halign: "right", fontStyle: "bold" }
+        },
+        styles: { 
+          fontSize: 8, 
+          cellPadding: 4, 
+          overflow: "linebreak",
+          valign: "middle",
+          font: "helvetica"
+        },
+        alternateRowStyles: {
+          fillColor: [249, 252, 252]
+        }
       });
       
-      doc.save(`${selectedCustomer.name}_report_${format(new Date(), "dd-MM-yyyy")}.pdf`);
-      toast.success("Report downloaded successfully!");
+      doc.save(`${selectedCustomer.name}_Ledger_${format(new Date(), "ddMMyy")}.pdf`);
+      toast.success("Professional report generated!");
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to generate PDF. Make sure plugins are loaded.");
@@ -288,7 +370,7 @@ export default function CustomerDetails({ embedded = false }) {
                
                <div className="w-full my-6 border-t border-gray-100"></div>
                
-               <p className="text-sm font-medium text-gray-600 w-full text-left">Current Outstanding Dues</p>
+               <p className="text-sm font-medium text-gray-600 w-full text-left">Current Pending Dues</p>
                {loading ? (
                    <Skeleton className="h-9 w-32 mt-1" />
                ) : (

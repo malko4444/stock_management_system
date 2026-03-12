@@ -135,84 +135,110 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                 </div>
             )}
 
-            <div className="flex items-center justify-between p-4">
-                <h2 className="text-[21px] font-semibold text-[#108587]">
-                    Inventory Products
-                </h2>
+            <div className="flex items-center justify-between p-6">
+                <div>
+                    <h2 className="text-[21px] font-bold text-[#108587] tracking-tight">
+                        Inventory Products
+                    </h2>
+                    <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest mt-0.5">Manage your stock records</p>
+                </div>
                 <button
                     onClick={() => {
                         setShowForm(true);
                         setNewItem({ productName: '', quantity: '', price: '', createdAt: new Date() });
                     }}
-                    className="bg-[#108587] text-white text-xl font-semibold px-5 py-1 rounded-md cursor-pointer transition hover:bg-[#17BCBE]"
+                    className="group px-6 py-2.5 bg-[#108587] text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-[#108587]/20 hover:scale-[1.05] transition-all active:scale-95 cursor-pointer flex items-center gap-2"
                 >
-                    +
+                    <CirclePlus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
+                    <span>Add Item</span>
                 </button>
             </div>
 
             {showForm && (
                 <>
                     <div
-                        className="fixed inset-0 bg-transparent bg-opacity-10 backdrop-blur-xs z-40"
+                        className="fixed inset-0 bg-black/20 backdrop-blur-md z-40 transition-all duration-300"
                         onClick={() => setShowForm(false)}
                     />
                     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
                         <div
-                            className="w-full max-w-md mx-auto px-6 pt-13 border border-gray-300 rounded-lg shadow-xl bg-white pointer-events-auto"
+                            className="w-full max-w-md mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-[#E8F8F9] overflow-hidden pointer-events-auto transform transition-all animate-scale-up"
                         >
-                            <h3 className="text-2xl items-center font-semibold mb-8 flex gap-2 text-[#108587]">
-                                {newItem.id ? (
-                                    <>
-                                        <Pencil className="w-6 h-6" />
-                                        <span>Edit Product</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CirclePlus className="w-5 h-5 text-[#108587]" />
-                                        <span>Add New Product</span>
-                                    </>
-                                )}
-                            </h3>
-                            <h2 className='mb-3 text-[#108587] font-semibold '>Product Name</h2>
-                            <input
-                                type="text"
-                                value={newItem.productName}
-                                onChange={(e) => setNewItem({ ...newItem, productName: e.target.value })}
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                                className="w-full p-3 mb-2 border border-gray-300 rounded-md"
-                            />
-                            <h2 className='mb-3 text-[#108587] font-semibold '>Quantity</h2>
-                            <input
-                                type="number"
-                                value={newItem.quantity}
-                                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                                className="w-full p-3 mb-2 border border-gray-300 rounded-md"
-                            />
-                            <h2 className='mb-3 text-[#108587] font-semibold '>Price per unit (optional)</h2>
-                            <input
-                                type="number"
-                                value={newItem.price ?? ''}
-                                onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                                className="w-full p-3 mb-6 border border-gray-300 rounded-md"
-                            />
-                            <div className="flex justify-end space-x-3 my-4">
-                                <button
-                                    onClick={() => {
-                                        setShowForm(false);
-                                        setNewItem({ productName: '', quantity: '', price: '', createdAt: new Date() });
-                                    }}
-                                    className="px-4 py-2 text-[#DC2626] rounded-md bg-[#FFE7E7] hover:bg-[#fddada] transition-colors cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleAddItem}
-                                    className="px-4 py-2 bg-[#C9FEFF] text-[#108587] rounded-md hover:bg-[#bdfbfd] transition-colors cursor-pointer"
-                                >
-                                    {newItem.id ? 'Update' : 'Save'}
-                                </button>
+                            <div className="bg-gradient-to-r from-[#108587]/5 to-transparent px-8 py-6 border-b border-gray-100">
+                                <h3 className="text-xl font-bold flex gap-3 text-[#108587] items-center">
+                                    {newItem.id ? (
+                                        <>
+                                            <div className="w-8 h-8 bg-white rounded-lg shadow-sm flex items-center justify-center border border-[#108587]/10">
+                                                <Pencil className="w-4 h-4" />
+                                            </div>
+                                            <span>Edit Product</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-8 h-8 bg-white rounded-lg shadow-sm flex items-center justify-center border border-[#108587]/10">
+                                                <CirclePlus className="w-5 h-5" />
+                                            </div>
+                                            <span>Add New Product</span>
+                                        </>
+                                    )}
+                                </h3>
+                            </div>
+
+                            <div className="p-8 space-y-5">
+                                <div className="group">
+                                    <h2 className="mb-3 text-[#108587] font-semibold">Product Name *</h2>
+                                    <input
+                                        type="text"
+                                        value={newItem.productName}
+                                        onChange={(e) => setNewItem({ ...newItem, productName: e.target.value })}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                                        placeholder="Enter product name..."
+                                        className="w-full bg-slate-50 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none placeholder:text-gray-300"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="group">
+                                        <h2 className="mb-3 text-[#108587] font-semibold">Quantity *</h2>
+                                        <input
+                                            type="number"
+                                            value={newItem.quantity}
+                                            onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                                            placeholder="0"
+                                            className="w-full bg-slate-50 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none placeholder:text-gray-300"
+                                        />
+                                    </div>
+                                    <div className="group">
+                                        <h2 className="mb-3 text-[#108587] font-semibold">Price per unit</h2>
+                                        <input
+                                            type="number"
+                                            value={newItem.price ?? ''}
+                                            onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                                            placeholder="Rs 0"
+                                            className="w-full bg-slate-50 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none placeholder:text-gray-300"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 pt-4 border-t border-gray-50 mt-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowForm(false);
+                                            setNewItem({ productName: '', quantity: '', price: '', createdAt: new Date() });
+                                        }}
+                                        className="flex-1 py-3 text-[#DC2626] font-bold text-xs uppercase tracking-widest rounded-xl bg-red-50 hover:bg-red-100 transition-all cursor-pointer active:scale-95"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleAddItem}
+                                        className="flex-2 py-3 bg-gradient-to-br from-[#108587] to-[#14a3a6] text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-[#108587]/10 hover:scale-[1.02] hover:shadow-xl transition-all active:scale-95 cursor-pointer"
+                                    >
+                                        {newItem.id ? 'Update' : 'Save'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
