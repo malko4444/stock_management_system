@@ -25,7 +25,7 @@ const Home = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [persistedCustomerId, setPersistedCustomerId] = useState("");
-  const { fetchCustomers, customers, inventory } = useContext(LoanContext);
+  const { user, customers, inventory } = useContext(LoanContext);
 
   const searchType = SEARCH_TYPES[activeComponent] || "products";
   const showSearch = ["inventory", "customers", "inventory-item"].includes(activeComponent);
@@ -33,8 +33,7 @@ const Home = () => {
   const [dashboard, setDashboard] = useState(null);
 
   useEffect(() => {
-    const adminId = localStorage.getItem('adminId');
-    if (!adminId) return;
+    if (!user) return;
 
     const customersData = customers || [];
     const inventoryData = inventory || [];
@@ -53,14 +52,9 @@ const Home = () => {
       outOfStockCount,
       totalItemsValue
     });
-  }, [customers, inventory]);
+  }, [user, customers, inventory]);
 
   useEffect(() => {
-    const adminId = localStorage.getItem('adminId');
-    if (adminId) {
-      fetchCustomers(adminId);
-    }
-
     const handlerNav = (e) => {
       const component = e?.detail?.component;
       const cid = e?.detail?.customerId;
@@ -73,7 +67,7 @@ const Home = () => {
     return () => {
       window.removeEventListener('navigateTo', handlerNav);
     };
-  }, [fetchCustomers]);
+  }, []);
 
   const renderContent = () => {
     switch (activeComponent) {

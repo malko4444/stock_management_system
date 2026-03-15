@@ -7,8 +7,8 @@ import { format } from "date-fns";
 import { createPortal } from "react-dom";
 
 export default function AddRecordModal({ isOpen, onClose, customerId, customerName, onSuccess }) {
-  const { submitTransaction, getCustomerDues } = useContext(LoanContext);
-  const adminId = localStorage.getItem("adminId");
+  const { user, submitTransaction, getCustomerDues, inventory } = useContext(LoanContext);
+  const adminId = user?.uid;
 
   const [transactionType, setTransactionType] = useState("add_dues");
   const [amount, setAmount] = useState("");
@@ -46,17 +46,9 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
   }, [isOpen, customerId, getCustomerDues]);
 
   useEffect(() => {
-    if (!isOpen || !adminId) return;
-    const fetchInventory = async () => {
-        try {
-            const items = await inventoryApi.getByAdmin(adminId);
-            setInventoryItems(items);
-        } catch(err) {
-            console.error("Failed to fetch inventory", err);
-        }
-    };
-    fetchInventory();
-  }, [isOpen, adminId]);
+    if (!isOpen || !inventory) return;
+    setInventoryItems(inventory);
+  }, [isOpen, inventory]);
 
   useEffect(() => {
     if (!isOpen) return;

@@ -21,7 +21,7 @@ const FILTER_OPTIONS = [
 ];
 
 export default function CustomerDetails({ embedded = false, targetCustomerId = "" }) {
-  const { customers, deleteCustomer, getCustomerDues, getCustomerRecords, deleteCustomerRecordsByPeriod, loading } = useContext(LoanContext);
+  const { user, customers, deleteCustomer, getCustomerDues, getCustomerRecords, deleteCustomerRecordsByPeriod, loading } = useContext(LoanContext);
   const { setCustomerId } = useContext(customerDataDataContext); // For backwards compatibility if needed
 
   const [selectedCustomerId, setSelectedCustomerId] = useState(targetCustomerId || "");
@@ -49,7 +49,7 @@ export default function CustomerDetails({ embedded = false, targetCustomerId = "
     return getCustomerRecords(selectedCustomerId);
   }, [selectedCustomerId, getCustomerRecords]);
 
-  const adminId = localStorage.getItem("adminId");
+  const adminId = user?.uid;
 
   // Auto-select first customer if none selected (and no targetCustomerId)
   useEffect(() => {

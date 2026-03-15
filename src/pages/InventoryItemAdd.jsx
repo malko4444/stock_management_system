@@ -2,16 +2,18 @@ import React, { useContext, useEffect, useState, useRef } from 'react';
 import { inventoryApi } from '../services/firebaseApi';
 import InventoryProducts from '../components/InventoryProducts';
 import { AdminDataContext } from './AdminContext';
+import { LoanContext } from '../contexts/LoanContext';
 import { toast } from 'react-toastify';
 import { PackagePlus, ClipboardList, Info, CircleHelp } from 'lucide-react';
 import 'react-toastify/dist/ReactToastify.css';
 
 function InventoryItemAdd({ embedded = false }) {
     const { updatedData, setUpdatedData } = useContext(AdminDataContext);
+    const { user } = useContext(LoanContext);
     const [productName, setProductName] = useState('');
     const [quantity, setQuantity] = useState('');
     const [price, setPrice] = useState('');
-    const adminId = localStorage.getItem('adminId');
+    const adminId = user?.uid;
     const inventoryProductsRef = useRef(null);
 
     useEffect(() => {

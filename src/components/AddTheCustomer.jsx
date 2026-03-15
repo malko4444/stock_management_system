@@ -191,7 +191,7 @@ export default function CustomersList({ searchTerm = '' }) {
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState("add");
     const [currentCustomerId, setCurrentCustomerId] = useState(null);
-    const { customers, fetchCustomers } = useContext(LoanContext);
+    const { user, customers, fetchCustomers } = useContext(LoanContext);
     const [filteredCustomers, setFilteredCustomers] = useState([]);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [customerToDelete, setCustomerToDelete] = useState(null);
@@ -200,15 +200,8 @@ export default function CustomersList({ searchTerm = '' }) {
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
-    const adminId = localStorage.getItem("adminId");
+    const adminId = user?.uid;
 
-    const fetchInitialData = useCallback(() => {
-        if (adminId && customers.length === 0) fetchCustomers(adminId);
-    }, [adminId, fetchCustomers, customers.length]);
-
-    useEffect(() => {
-        fetchInitialData();
-    }, [fetchInitialData]);
 
     useEffect(() => {
         if (searchTerm) {

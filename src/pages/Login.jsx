@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { authApi, userProfileApi } from "../services/firebaseApi";
 import { Link, useNavigate } from "react-router-dom";
 import navIcon from "../assets/img/navIcon.png";
+import { LoanContext } from "../contexts/LoanContext";
 
 function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { user, authLoading } = useContext(LoanContext);
 
   useEffect(() => {
-    if (localStorage.getItem("adminId")) navigate("/home");
-  }, [navigate]);
+    if (!authLoading && user) navigate("/home");
+  }, [user, authLoading, navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -26,11 +28,7 @@ function Login() {
       let profile = await userProfileApi.get(uid);
       if (!profile) {
         await userProfileApi.set(uid, { email, displayName: email.split("@")[0] || "User" });
-        profile = { displayName: email.split("@")[0] || "User" };
       }
-      const displayName = profile.displayName || email.split("@")[0] || "User";
-      localStorage.setItem("adminId", uid);
-      localStorage.setItem("userDisplayName", displayName);
       navigate("/home");
     } catch (err) {
       console.error("Login error:", err);

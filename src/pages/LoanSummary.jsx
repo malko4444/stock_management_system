@@ -66,7 +66,7 @@ const GlobalClearConfirmationModal = ({ isOpen, onClose, onConfirm, isDeleting }
 };
 
 export default function LoanSummary() {
-  const { customers, globalRecords, loading, clearAllRecords } = useContext(LoanContext);
+  const { user, customers, globalRecords, loading, clearAllRecords } = useContext(LoanContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all"); // time filter: all, week, month
   const [txTypeFilter, setTxTypeFilter] = useState("all"); // transaction type: all, purchase, payment
@@ -74,7 +74,7 @@ export default function LoanSummary() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showClearModal, setShowClearModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const adminId = localStorage.getItem("adminId");
+  const adminId = user?.uid;
 
   // Aggregate Statistics based on FILTERED records
   const stats = useMemo(() => {

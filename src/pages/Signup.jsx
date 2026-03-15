@@ -32,8 +32,6 @@ function Signup() {
       const email = userCredential.user.email || "";
       const displayName = formData.displayName?.trim() || email.split("@")[0] || "User";
       await userProfileApi.set(uid, { email, displayName });
-      localStorage.setItem("adminId", uid);
-      localStorage.setItem("userDisplayName", displayName);
       setSuccess("Signup successful! Redirecting...");
       setTimeout(() => navigate("/home"), 2000);
       setFormData({ email: "", password: "", confirmPassword: "", displayName: "" });

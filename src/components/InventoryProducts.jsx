@@ -10,12 +10,12 @@ import { toast } from 'react-toastify';
 function InventoryProducts({ searchTerm }) {
     const { setUpdatedData } = useContext(AdminDataContext);
     const { setInventoryItem } = useContext(customerDataDataContext);
-    const { inventory } = useContext(LoanContext);
+    const { user, inventory } = useContext(LoanContext);
     const [loadingState, setLoadingState] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [newItem, setNewItem] = useState({ productName: '', quantity: '', price: '', createdAt: new Date() });
 
-    const adminId = localStorage.getItem("adminId");
+    const adminId = user?.uid;
 
     const filteredInventory = (typeof searchTerm === 'string' ? inventory.filter(item =>
         item.productName?.toLowerCase().includes(searchTerm.toLowerCase())

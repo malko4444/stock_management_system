@@ -1,13 +1,16 @@
 import { Search, User } from "lucide-react"; 
-import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useRef, useContext } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { LoanContext } from "../contexts/LoanContext";
+import { authApi } from "../services/firebaseApi";
 
 const Topbar = ({ onSearch, searchType = "products", showSearch = true, isCollapsed }) => {
   const [searchInput, setSearchInput] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [user, setUser] = useState(null);
+  const { user, authLoading } = useContext(LoanContext);
   const dropdownRef = useRef(null);
   const [debouncedValue, setDebouncedValue] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -23,12 +26,9 @@ const Topbar = ({ onSearch, searchType = "products", showSearch = true, isCollap
     }
   }, [debouncedValue, onSearch]);
 
-  const displayName = localStorage.getItem("userDisplayName") || "User";
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("adminId");
-    if (storedUser) setUser(storedUser);
-
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
@@ -38,11 +38,13 @@ const Topbar = ({ onSearch, searchType = "products", showSearch = true, isCollap
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const logOutUser = () => {
-    localStorage.removeItem("adminId");
-    localStorage.removeItem("userDisplayName");
-    setUser(null);
-    window.location.reload();
+  const logOutUser = async () => {
+    try {
+      await authApi.signOut();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (

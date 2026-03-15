@@ -2,10 +2,14 @@ import React, { createContext, useCallback, useState, useEffect, useRef } from '
 import { customersApi, customerRecordsApi, auditApi, inventoryApi } from '../services/firebaseApi';
 import { format, subDays, subWeeks, subMonths, subYears, isAfter, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { toast } from 'react-toastify';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../firebaseConfig';
 
 export const LoanContext = createContext();
 
 export default function LoanProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [records, setRecords] = useState([]);
   const [inventory, setInventory] = useState([]);
@@ -51,11 +55,23 @@ export default function LoanProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    const adminId = localStorage.getItem("adminId");
-    if (adminId) {
-        fetchCustomers(adminId);
-    }
+    const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+      if (firebaseUser) {
+        fetchCustomers(firebaseUser.uid);
+      } else {
+        setCustomers([]);
+        setRecords([]);
+        setInventory([]);
+        if (unsubCustomersRef.current) unsubCustomersRef.current();
+        if (unsubRecordsRef.current) unsubRecordsRef.current();
+        if (unsubInventoryRef.current) unsubInventoryRef.current();
+      }
+    });
+
     return () => {
+      unsubAuth();
       if (unsubCustomersRef.current) unsubCustomersRef.current();
       if (unsubRecordsRef.current) unsubRecordsRef.current();
       if (unsubInventoryRef.current) unsubInventoryRef.current();
@@ -195,8 +211,8 @@ export default function LoanProvider({ children }) {
 
   const deleteCustomer = useCallback(async (customerId) => {
     try {
-      const adminId = localStorage.getItem("adminId");
-      if (!adminId) throw new Error("No admin ID found");
+      if (!user) throw new Error("No admin ID found");
+      const adminId = user.uid;
       await customerRecordsApi.deleteByCustomer(customerId, adminId);
       await customersApi.delete(customerId);
       setCustomers(prev => prev.filter(c => c.id !== customerId));
@@ -327,7 +343,7 @@ export default function LoanProvider({ children }) {
   }, []);
 
   const value = {
-    customers, loading, fetchCustomers, submitTransaction, recordPurchase, recordPayment,
+    user, authLoading, customers, loading, fetchCustomers, submitTransaction, recordPurchase, recordPayment,
     getCustomerTransactions: useCallback(async (adminId, customerId) => records.filter(r => (r.customer_id === customerId || r.customerId === customerId)), [records]),
     getCustomerRecords: useCallback((cid) => records.filter(r => (r.customer_id === cid || r.customerId === cid)).sort((a,b) => {
         const da = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at);
