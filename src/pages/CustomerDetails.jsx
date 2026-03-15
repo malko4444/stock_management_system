@@ -250,7 +250,7 @@ export default function CustomerDetails({ embedded = false, targetCustomerId = "
         return [
           format(rDate, "dd/MM/yyyy, hh:mm a"),
           isPurchase ? "Dues Added" : "Payment Received",
-          isPurchase ? (record.product_name || record.description || "Product/Goods") : (record.payment_method || record.description || "Payment"),
+          isPurchase ? (record.product_name || record.productName || record.description || "Product/Goods") : (record.payment_method || record.paymentMethod || record.description || "Payment"),
           `Rs ${Number(record.amount || record.total_amount || 0).toLocaleString()}`,
           !isPurchase && record.clearance_date ? format(new Date(record.clearance_date), "dd/MM/yyyy") : "-",
           `Rs ${Number(record.runningBalance || 0).toLocaleString()}`,
@@ -548,7 +548,7 @@ export default function CustomerDetails({ embedded = false, targetCustomerId = "
                                 </span>
                               </td>
                               <td className="px-5 py-4 text-sm text-gray-900 max-w-[200px] truncate">
-                                {isAddingDues ? (record.product_name || record.description || "Product/Goods") : (record.payment_method || record.description || "Payment")}
+                                {isAddingDues ? (record.product_name || record.productName || record.description || "Product/Goods") : (record.payment_method || record.paymentMethod || record.description || "Payment")}
                               </td>
                               <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">
                                 {isAddingDues ? "+" : "-"} Rs {recordAmount.toLocaleString()}

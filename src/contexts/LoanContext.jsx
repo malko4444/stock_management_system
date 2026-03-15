@@ -260,7 +260,7 @@ export default function LoanProvider({ children }) {
 
       console.log(`Deleting records for ${customer.name} between ${startBoundary.toISOString()} and ${endBoundary.toISOString()}`);
 
-      const customerRecords = records.filter(r => r.customer_id === customerId);
+      const customerRecords = records.filter(r => (r.customer_id === customerId || r.customerId === customerId));
       const toDelete = customerRecords.filter(r => {
         let rDate;
         if (r.created_at?.toDate) {
@@ -328,8 +328,8 @@ export default function LoanProvider({ children }) {
 
   const value = {
     customers, loading, fetchCustomers, submitTransaction, recordPurchase, recordPayment,
-    getCustomerTransactions: useCallback(async (adminId, customerId) => records.filter(r => r.customer_id === customerId), [records]),
-    getCustomerRecords: useCallback((cid) => records.filter(r => r.customer_id === cid).sort((a,b) => {
+    getCustomerTransactions: useCallback(async (adminId, customerId) => records.filter(r => (r.customer_id === customerId || r.customerId === customerId)), [records]),
+    getCustomerRecords: useCallback((cid) => records.filter(r => (r.customer_id === cid || r.customerId === cid)).sort((a,b) => {
         const da = a.created_at?.toDate ? a.created_at.toDate() : new Date(a.created_at);
         const db = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at);
         return db - da;

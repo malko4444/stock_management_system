@@ -112,10 +112,11 @@ export default function LoanSummary() {
     });
 
     globalRecords.forEach(record => {
-      const c = analytics[record.customer_id];
+      const cid = record.customer_id || record.customerId;
+      const c = analytics[cid];
       if (!c) return;
       
-      const customer = customers.find(cust => cust.id === record.customer_id);
+      const customer = customers.find(cust => cust.id === cid);
       const customerName = customer ? customer.name : "Unknown";
 
       const amount = Number(record.amount || record.total_amount || 0);
@@ -168,7 +169,8 @@ export default function LoanSummary() {
   const filteredHistory = useMemo(() => {
     const now = new Date();
     let history = globalRecords.map(r => {
-        const c = customers.find(cust => cust.id === r.customer_id);
+        const cid = r.customer_id || r.customerId;
+        const c = customers.find(cust => cust.id === cid);
         return { ...r, customerName: c ? c.name : "Unknown" };
     });
 
@@ -531,7 +533,7 @@ export default function LoanSummary() {
                                 </td>
                                 <td className="px-6 py-4">
                                     <p className="text-sm text-gray-600 truncate max-w-[150px] font-medium">
-                                        {isDues ? (record.product_name || "Purchase") : (record.payment_method || "Payment")}
+                                        {isDues ? (record.product_name || record.productName || "Purchase") : (record.payment_method || record.paymentMethod || "Payment")}
                                     </p>
                                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">{isDues ? "Credit Sale" : "Receipt"}</p>
                                 </td>

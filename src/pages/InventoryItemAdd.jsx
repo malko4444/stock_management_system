@@ -52,7 +52,6 @@ function InventoryItemAdd({ embedded = false }) {
                     productName,
                     quantity: qty,
                     price: unitPrice,
-                    price: unitPrice,
                 });
 
                 toast.success('Inventory updated successfully!');
