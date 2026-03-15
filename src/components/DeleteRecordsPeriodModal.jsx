@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { X, Trash2, Calendar, AlertTriangle, ChevronDown } from 'lucide-react';
+import { format } from 'date-fns';
 
 const PERIOD_OPTIONS = [
+  { value: 'today', label: 'Today' },
   { value: 'week', label: 'This Week' },
   { value: 'month', label: 'This Month' },
   { value: '3months', label: 'Last 3 Months' },
@@ -11,9 +13,22 @@ const PERIOD_OPTIONS = [
 ];
 
 export default function DeleteRecordsPeriodModal({ isOpen, onClose, onConfirm, customerName }) {
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [selectedPeriod, setSelectedPeriod] = useState('today');
+  // Use local time for default inputs to avoid off-by-one errors
+  const [customDates, setCustomDates] = useState({
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    endDate: format(new Date(), 'yyyy-MM-dd')
+  });
 
   if (!isOpen) return null;
+
+  const handleConfirm = () => {
+    if (selectedPeriod === 'custom') {
+      onConfirm(selectedPeriod, customDates);
+    } else {
+      onConfirm(selectedPeriod);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[2000] overflow-y-auto bg-black/40 backdrop-blur-md pointer-events-auto" onClick={onClose}>
@@ -40,26 +55,51 @@ export default function DeleteRecordsPeriodModal({ isOpen, onClose, onConfirm, c
               </div>
             </div>
 
-            <div className="space-y-2 mb-8">
-              <label className="block text-[10px] font-bold text-[#108587] uppercase tracking-wider ml-1">
-                Select Time Period
-              </label>
-              <div className="relative group">
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="w-full appearance-none bg-slate-50 border border-[#20dbdf] text-gray-900 text-sm font-semibold rounded-xl focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] block p-4 pr-12 transition-all outline-none cursor-pointer hover:bg-slate-100/50"
-                >
-                  {PERIOD_OPTIONS.map((period) => (
-                    <option key={period.value} value={period.value}>
-                      {period.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-[#108587]">
-                  <ChevronDown size={20} />
+            <div className="space-y-4 mb-8">
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold text-[#108587] uppercase tracking-wider ml-1">
+                  Select Time Period
+                </label>
+                <div className="relative group">
+                  <select
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                    className="w-full appearance-none bg-slate-50 border border-[#20dbdf] text-gray-900 text-sm font-semibold rounded-xl focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] block p-4 pr-12 transition-all outline-none cursor-pointer hover:bg-slate-100/50"
+                  >
+                    {PERIOD_OPTIONS.map((period) => (
+                      <option key={period.value} value={period.value}>
+                        {period.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-[#108587]">
+                    <ChevronDown size={20} />
+                  </div>
                 </div>
               </div>
+
+              {selectedPeriod === 'custom' && (
+                <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={customDates.startDate}
+                      onChange={(e) => setCustomDates(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="w-full bg-slate-50 border border-[#20dbdf]/50 text-gray-900 text-xs font-semibold rounded-xl p-3 outline-none focus:border-[#108587] transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">End Date</label>
+                    <input
+                      type="date"
+                      value={customDates.endDate}
+                      onChange={(e) => setCustomDates(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="w-full bg-slate-50 border border-[#20dbdf]/50 text-gray-900 text-xs font-semibold rounded-xl p-3 outline-none focus:border-[#108587] transition-all"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-amber-50 border border-amber-100/50 rounded-2xl p-4 mb-8 flex gap-3">
@@ -79,9 +119,8 @@ export default function DeleteRecordsPeriodModal({ isOpen, onClose, onConfirm, c
                 Cancel
               </button>
               <button
-                onClick={() => onConfirm(selectedPeriod)}
-                disabled={selectedPeriod === 'custom'}
-                className="flex-1 py-3.5 bg-gradient-to-br from-[#DC2626] to-[#ef4444] text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-red-500/10 transition-all cursor-pointer active:scale-95 hover:scale-[1.02] disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={handleConfirm}
+                className="flex-1 py-3.5 bg-gradient-to-br from-[#DC2626] to-[#ef4444] text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-red-500/10 transition-all cursor-pointer active:scale-95 hover:scale-[1.02]"
               >
                 Confirm
               </button>

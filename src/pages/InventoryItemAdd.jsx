@@ -3,7 +3,7 @@ import { inventoryApi } from '../services/firebaseApi';
 import InventoryProducts from '../components/InventoryProducts';
 import { AdminDataContext } from './AdminContext';
 import { toast } from 'react-toastify';
-import { PackagePlus, User, ClipboardList, Info, CircleHelp } from 'lucide-react';
+import { PackagePlus, ClipboardList, Info, CircleHelp } from 'lucide-react';
 import 'react-toastify/dist/ReactToastify.css';
 
 function InventoryItemAdd({ embedded = false }) {
@@ -11,8 +11,6 @@ function InventoryItemAdd({ embedded = false }) {
     const [productName, setProductName] = useState('');
     const [quantity, setQuantity] = useState('');
     const [price, setPrice] = useState('');
-    const [vendorName, setVendorName] = useState('');
-    const [onAccount, setOnAccount] = useState(false);
     const adminId = localStorage.getItem('adminId');
     const inventoryProductsRef = useRef(null);
 
@@ -47,8 +45,6 @@ function InventoryItemAdd({ embedded = false }) {
                     quantity: qty,
                     price: unitPrice,
                     adminId,
-                    vendor_name: vendorName || null,
-                    on_account: !!onAccount,
                 });
                 toast.success('Inventory added successfully!');
             } else {
@@ -56,8 +52,7 @@ function InventoryItemAdd({ embedded = false }) {
                     productName,
                     quantity: qty,
                     price: unitPrice,
-                    vendor_name: vendorName || updatedData.vendor_name,
-                    on_account: !!onAccount,
+                    price: unitPrice,
                 });
 
                 toast.success('Inventory updated successfully!');
@@ -135,31 +130,6 @@ function InventoryItemAdd({ embedded = false }) {
                                 />
                             </div>
 
-                            <div className="md:col-span-2 group">
-                                <label className="flex items-center gap-2 text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-[0.2em] transition-colors">
-                                    <User size={12} />
-                                    Vendor / Supplier (Optional)
-                                </label>
-                                <input 
-                                    value={vendorName} 
-                                    onChange={(e) => setVendorName(e.target.value)} 
-                                    placeholder="Enter vendor name..."
-                                    className="w-full bg-white/70 border border-[#20dbdf] rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:ring-4 focus:ring-[#108587]/5 focus:border-[#108587] transition-all outline-none placeholder:text-gray-300 shadow-sm" 
-                                />
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <label className="relative inline-flex items-center cursor-pointer group mt-1">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={onAccount} 
-                                        onChange={(e) => setOnAccount(e.target.checked)}
-                                        className="sr-only peer" 
-                                    />
-                                    <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#108587]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-[#108587]"></div>
-                                    <span className="ml-3 text-[10px] font-bold text-[#108587] uppercase tracking-widest group-hover:text-slate-700 transition-colors">Purchase On Account</span>
-                                </label>
-                            </div>
 
                             <div className="md:col-span-2 flex justify-end pt-6 mt-2 border-t border-white/40">
                                 <button 

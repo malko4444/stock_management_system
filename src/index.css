@@ -100,4 +100,26 @@
       border: 1px solid rgba(255, 255, 255, 0.3);
       box-shadow: 0 10px 40px -10px rgba(31, 38, 135, 0.15);
     }
+
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    .marquee-container {
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .animate-marquee {
+      display: inline-block;
+      white-space: nowrap;
+      animation: marquee 20s linear infinite;
+    }
+
+    .animate-marquee:hover {
+      animation-play-state: paused;
+    }
   }

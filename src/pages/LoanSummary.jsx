@@ -250,6 +250,41 @@ export default function LoanSummary() {
           <h1 className="text-2xl font-bold text-[#108587] tracking-tight">Purchase & Credit Summary</h1>
           <p className="text-gray-500">Customer records and transactions activities</p>
         </div>
+
+        {/* Seamless Branding Banner */}
+        <div className="hidden lg:flex flex-1 mx-8 h-10 items-center overflow-hidden border-x border-[#108587]/10 bg-[#108587]/[0.02]">
+          <div className="marquee-container">
+            <div className="animate-marquee flex items-center gap-12 text-[10px] font-bold text-[#108587]/80 uppercase tracking-[0.2em]">
+              {/* Set 1 */}
+              <div className="flex items-center gap-6">
+                <span className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#108587] animate-pulse" />
+                  Get our services
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-900 font-extrabold">Hamza Software Solutions</span>
+                <span className="text-gray-300">|</span>
+                <span>Hamza Ahmad: 03058777185</span>
+                <span className="text-gray-300">|</span>
+                <span className="lowercase">ha01257890@gmail.com</span>
+              </div>
+              
+              {/* Set 2 (Identical for seamless loop) */}
+              <div className="flex items-center gap-6 pr-12">
+                <span className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#108587] animate-pulse" />
+                  Get our services
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-900 font-extrabold">Hamza Software Solutions</span>
+                <span className="text-gray-300">|</span>
+                <span>Hamza Ahmad: 03058777185</span>
+                <span className="text-gray-300">|</span>
+                <span className="lowercase">ha01257890@gmail.com</span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="flex gap-2">
             <button 
               onClick={() => setShowClearModal(true)}

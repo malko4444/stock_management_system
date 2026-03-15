@@ -20,11 +20,11 @@ const FILTER_OPTIONS = [
   { value: "year", label: "Last Year" },
 ];
 
-export default function CustomerDetails({ embedded = false }) {
+export default function CustomerDetails({ embedded = false, targetCustomerId = "" }) {
   const { customers, deleteCustomer, getCustomerDues, getCustomerRecords, deleteCustomerRecordsByPeriod, loading } = useContext(LoanContext);
   const { setCustomerId } = useContext(customerDataDataContext); // For backwards compatibility if needed
 
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState(targetCustomerId || "");
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,6 +36,13 @@ export default function CustomerDetails({ embedded = false }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
+  // Sync with targetCustomerId prop
+  useEffect(() => {
+    if (targetCustomerId) {
+      setSelectedCustomerId(targetCustomerId);
+    }
+  }, [targetCustomerId]);
+
   // Use the records from the shared context ledger directly
   const rawRecords = useMemo(() => {
     if (!selectedCustomerId) return [];
@@ -44,12 +51,12 @@ export default function CustomerDetails({ embedded = false }) {
 
   const adminId = localStorage.getItem("adminId");
 
-  // Auto-select first customer if none selected
+  // Auto-select first customer if none selected (and no targetCustomerId)
   useEffect(() => {
-    if (customers.length > 0 && !selectedCustomerId) {
+    if (customers.length > 0 && !selectedCustomerId && !targetCustomerId) {
       setSelectedCustomerId(customers[0].id);
     }
-  }, [customers, selectedCustomerId]);
+  }, [customers, selectedCustomerId, targetCustomerId]);
 
   const selectedCustomer = useMemo(() => 
     customers.find((c) => c.id === selectedCustomerId), 
@@ -302,11 +309,11 @@ export default function CustomerDetails({ embedded = false }) {
     }
   };
 
-  const handleDeleteRecords = async (period) => {
+  const handleDeleteRecords = async (period, customDates) => {
     if (!selectedCustomerId) return;
     setIsDeletingRecords(true);
     try {
-      const success = await deleteCustomerRecordsByPeriod(adminId, selectedCustomerId, period);
+      const success = await deleteCustomerRecordsByPeriod(adminId, selectedCustomerId, period, customDates);
       if (success) {
         setShowDeleteRecordsModal(false);
       }
@@ -318,38 +325,64 @@ export default function CustomerDetails({ embedded = false }) {
     }
   };
 
+  const handleBack = () => {
+    const event = new CustomEvent('navigateTo', { detail: { component: 'customers' } });
+    window.dispatchEvent(event);
+  };
+
   return (
     <div className={embedded ? "min-h-0" : "min-h-screen bg-gray-50 py-6 px-4"}>
       <div className="max-w-6xl mx-auto space-y-6">
         
         <div className="flex flex-col md:flex-row gap-4 items-end justify-between bg-white p-4 rounded-2xl shadow-sm border border-[#E8F8F9]">
-            <div className="w-full md:w-1/3">
-                <label className="block text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-tight ml-1">Select Customer Account</label>
-                <select
-                    value={selectedCustomerId}
-                    onChange={(e) => {
-                    setSelectedCustomerId(e.target.value);
-                    setCurrentPage(1);
-                    }}
-                    className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 bg-white focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] text-sm text-gray-900 transition-all outline-none cursor-pointer"
-                >
-                    <option value="">-- Choose Account --</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                          {c.name} {c.phone ? " (" + c.phone + ")" : ""}
-                      </option>
-                    ))}
-                </select>
+            <div className="flex items-center gap-3 w-full md:w-1/3">
+                <div className="flex-1">
+                    <label className="block text-[10px] font-bold text-[#108587] mb-1.5 uppercase tracking-tight ml-1">Select Customer Account</label>
+                    <select
+                        value={selectedCustomerId}
+                        onChange={(e) => {
+                        setSelectedCustomerId(e.target.value);
+                        setCurrentPage(1);
+                        }}
+                        className="w-full border border-[#20dbdf] rounded-lg px-4 py-2 bg-white focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] text-sm text-gray-900 transition-all outline-none cursor-pointer"
+                    >
+                        <option value="">-- Choose Account --</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.id}>
+                              {c.name} {c.phone ? " (" + c.phone + ")" : ""}
+                          </option>
+                        ))}
+                    </select>
+                </div>
             </div>
             
             <div className="flex items-center gap-3">
+                <button
+                    onClick={handleBack}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#108587] text-white rounded-lg hover:bg-[#0e7274] shadow-md shadow-[#108587]/10 transition-all text-xs font-bold active:scale-95 cursor-pointer"
+                    title="Back to customers"
+                >
+                    <ChevronLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+                    <span className="hidden md:block text-xs font-bold">All Customers</span>
+                </button>
+
+              {selectedCustomer && (
+                <button
+                   onClick={() => setShowAddModal(true)}
+                   className="inline-flex items-center gap-2 px-5 py-2 bg-[#108587] text-white rounded-lg hover:bg-[#0e7274] shadow-md shadow-[#108587]/10 transition-all text-xs font-bold active:scale-95 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  <span>New Record</span>
+                </button>
+              )}
+
               <select
                 value={filterPeriod}
                 onChange={(e) => {
                   setFilterPeriod(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="border border-[#20dbdf] rounded-lg px-3 py-2 bg-white text-xs font-bold text-gray-600 focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none cursor-pointer"
+                className="border border-[#108587] rounded-lg px-3 py-2 bg-white text-xs font-bold border-[#108587] text-[#108587] rounded-lg hover:bg-[#108587]/5  transition-all outline-none cursor-pointer"
               >
                 {FILTER_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -362,18 +395,8 @@ export default function CustomerDetails({ embedded = false }) {
                 className="inline-flex items-center gap-2 px-5 py-2 bg-white border border-[#108587] text-[#108587] rounded-lg hover:bg-[#108587]/5 transition-all text-xs font-bold disabled:opacity-30 shadow-sm cursor-pointer"
               >
                 <Download size={16} />
-                <span>Export PDF</span>
+                <span>Create Invoice</span>
               </button>
-              
-              {selectedCustomer && (
-                <button
-                   onClick={() => setShowAddModal(true)}
-                   className="inline-flex items-center gap-2 px-5 py-2 bg-[#108587] text-white rounded-lg hover:bg-[#0e7274] shadow-md shadow-[#108587]/10 transition-all text-xs font-bold active:scale-95 cursor-pointer"
-                >
-                  <Plus size={16} />
-                  <span>New Record</span>
-                </button>
-              )}
             </div>
         </div>
 
@@ -386,75 +409,91 @@ export default function CustomerDetails({ embedded = false }) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="flex flex-col gap-6">
             
-            {/* Sidebar Profile Card */}
-            <div className="col-span-1 border border-gray-100 bg-white rounded-xl shadow-sm p-6 flex flex-col items-center text-center h-fit">
-               <div className="w-20 h-20 bg-[#E8F8F9] text-[#108587] rounded-full flex justify-center items-center text-2xl font-bold mb-4">
-                  {selectedCustomer.name.charAt(0).toUpperCase()}
-               </div>
-               <h2 className="text-xl font-bold text-gray-900">{selectedCustomer.name}</h2>
-               <p className="text-sm text-gray-500 mt-1">{selectedCustomer.phone || "No Phone Number"}</p>
-               <p className="text-sm text-gray-500">{selectedCustomer.address || "No Address"}</p>
-               
-               <div className="w-full my-6 border-t border-gray-100"></div>
-               
-               <p className="text-sm font-medium text-gray-600 w-full text-left">Current Pending Dues</p>
-               {loading ? (
-                   <Skeleton className="h-9 w-32 mt-1" />
-               ) : (
-                   <p className={`text-3xl font-bold w-full text-left mt-1 ${currentDues > 0 ? "text-red-600" : "text-gray-900"}`}>
-                     Rs {currentDues.toLocaleString()}
-                   </p>
-               )}
-
-               <div className="w-full flex justify-between mt-4 text-sm">
-                  <span className="text-gray-500">Total Paid:</span>
-                  {loading ? <Skeleton className="h-5 w-20" /> : <span className="font-semibold text-green-600">Rs {analytics.totalPaid.toLocaleString()}</span>}
-               </div>
-               <div className="w-full flex justify-between mt-1 text-sm">
-                  <span className="text-gray-500">Total purchase:</span>
-                  {loading ? <Skeleton className="h-5 w-20" /> : <span className="font-semibold text-red-600">Rs {analytics.totalLoaned.toLocaleString()}</span>}
-               </div>
-               
-               <div className="w-full mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-center justify-between">
-                  <span className="text-sm font-medium text-[#108587]">Goodwill Index</span>
-                  <div className="flex text-yellow-400">
-                     {loading ? (
-                         <Skeleton className="h-4 w-24" />
-                     ) : (
-                         [...Array(5)].map((_, i) => (
-                            <svg key={i} className={`w-4 h-4 ${i < analytics.goodwillIndex ? "fill-current" : "text-gray-300 fill-current"}`} viewBox="0 0 20 20">
-                               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                            </svg>
-                         ))
-                     )}
+            {/* Top Profile Header */}
+            <div className="border border-gray-100 bg-white rounded-2xl shadow-sm p-6 flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
+               <div className="flex flex-col md:flex-row items-center md:items-start gap-4 text-center md:text-left">
+                  <div className="w-16 h-16 bg-[#E8F8F9] text-[#108587] rounded-full flex justify-center items-center text-xl font-bold shrink-0">
+                    {selectedCustomer.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{selectedCustomer.name}</h2>
+                    <p className="text-sm text-gray-500">{selectedCustomer.phone || "No Phone Number"}</p>
+                    <p className="text-sm text-gray-500">{selectedCustomer.address || "No Address"}</p>
                   </div>
                </div>
-               
-               <button
-                  disabled={isDeletingRecords}
-                  onClick={() => setShowDeleteRecordsModal(true)}
-                  className="w-full mt-6 py-2 text-red-500 border border-transparent rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-all font-bold text-xs cursor-pointer disabled:opacity-50"
-               >
-                 <Trash2 size={16} />
-                 {isDeletingRecords ? "Deleting..." : "Delete Records"}
-               </button>
-               
-               <button
-                  onClick={() => {
-                    setDeletingId(selectedCustomer.id);
-                    setShowDeleteModal(true);
-                  }}
-                  className="w-full mt-2 py-2 text-red-400 border border-transparent rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-all font-bold text-xs cursor-pointer"
-               >
-                 <Trash2 size={16} />
-                 Delete Account
-               </button>
+
+               <div className="flex flex-wrap items-center justify-center md:justify-end gap-6 w-full md:w-auto">
+                  {/* Current Balance */}
+                  <div className="flex flex-col items-center md:items-start md:border-r md:border-gray-100 md:pr-6">
+                    <p className="text-[10px] font-bold text-[#108587] uppercase tracking-wider mb-1">Pending Dues</p>
+                    {loading ? (
+                        <Skeleton className="h-8 w-24" />
+                    ) : (
+                        <p className={`text-md font-bold ${currentDues > 0 ? "text-red-600" : "text-gray-900"}`}>
+                          Rs {currentDues.toLocaleString()}
+                        </p>
+                    )}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="hidden sm:flex flex-col gap-1 md:border-r md:border-gray-100 md:pr-6">
+                    <div className="flex justify-between gap-4 text-xs">
+                      <span className="text-[#108587] font-semibold text-[1.04em]">Total Amount Paid by customer:</span>
+                      {loading ? <Skeleton className="h-4 w-16" /> : <span className="font-bold text-[1.1em] text-green-600">Rs {analytics.totalPaid.toLocaleString()}</span>}
+                    </div>
+                    <div className="flex justify-between gap-4 text-xs">
+                      <span className="text-[#108587] font-semibold text-[1.04em]">Total Bill of Purchase:</span>
+                      {loading ? <Skeleton className="h-4 w-16" /> : <span className="font-bold text-[1.1em] text-red-600">Rs {analytics.totalLoaned.toLocaleString()}</span>}
+                    </div>
+                  </div>
+
+                  {/* Goodwill & Actions */}
+                  <div className="flex flex-col items-center md:items-end gap-2">
+                     <div className="flex items-center gap-2 bg-[#E8F8F9] px-3 py-1 rounded-full">
+                        <span className="text-[10px] font-bold text-[#108587] uppercase tracking-wider">Goodwill</span>
+                        <div className="flex text-yellow-500">
+                           {loading ? (
+                               <Skeleton className="h-3 w-16" />
+                           ) : (
+                               [...Array(5)].map((_, i) => (
+                                  <svg key={i} className={`w-3.5 h-3.5 ${i < analytics.goodwillIndex ? "fill-current" : "text-gray-300 fill-current"}`} viewBox="0 0 20 20">
+                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                  </svg>
+                               ))
+                           )}
+                        </div>
+                        <div className="flex gap-2">
+                        <button
+                           disabled={isDeletingRecords}
+                           onClick={() => setShowDeleteRecordsModal(true)}
+                           className="inline-flex items-center gap-2 px-4 py-1
+                            text-[#DC2626] bg-[#FFE7E7] hover:bg-[#fddada] transition-all border border-red-300  rounded-full "
+                        >
+                          <span className="text-xs  font-semibold">Delete Records</span>
+                          <Trash2 size={16} />
+                        </button>
+                        <button
+                           onClick={() => {
+                             setDeletingId(selectedCustomer.id);
+                             setShowDeleteModal(true);
+                           }}
+                           className="inline-flex items-center gap-2 px-4 py-1
+                            text-[#DC2626] bg-[#FFE7E7] hover:bg-[#fddada] transition-all border border-red-300  rounded-full  "
+                        >
+                          <span className="text-xs font-semibold">Delete Account</span>
+                          <Trash2 size={16} />
+                        </button>
+                     </div>
+                     </div>
+                     
+                  </div>
+               </div>
             </div>
             
             {/* Main Ledger Table */}
-            <div className="col-span-1 lg:col-span-3">
+            <div className="w-full">
               <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">

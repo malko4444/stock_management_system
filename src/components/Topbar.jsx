@@ -2,7 +2,7 @@ import { Search, User } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
-const Topbar = ({ onSearch, searchType = "products", showSearch = true }) => {
+const Topbar = ({ onSearch, searchType = "products", showSearch = true, isCollapsed }) => {
   const [searchInput, setSearchInput] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -47,8 +47,13 @@ const Topbar = ({ onSearch, searchType = "products", showSearch = true }) => {
 
   return (
     <div className="w-full min-h-[70px] border-b border-[#17BCBE] flex flex-wrap justify-between items-center gap-2 px-3 py-3 md:px-4 md:py-4 bg-white shrink-0">
-      {/* Left Section - Search (when showSearch) */}
+      {/* Left Section - Logo (when collapsed) & Search */}
       <div className="flex items-center gap-4 min-w-0 flex-1">
+        {isCollapsed && (
+          <span className="text-xl font-bold text-[#108587] leading-tight lg:text-2xl whitespace-nowrap animate-in fade-in slide-in-from-left-4 duration-500">
+            Stockease
+          </span>
+        )}
         {showSearch && (
           <div className="relative flex items-center bg-[#E8F8F9] w-full max-w-[280px] md:max-w-[430px] h-[42px] px-3 py-2 rounded-lg border border-[#20dbdf]">
             <Search size={20} className="absolute left-2.5 text-[#17BCBE] shrink-0" />

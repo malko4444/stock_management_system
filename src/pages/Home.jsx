@@ -9,6 +9,7 @@ import Topbar from "../components/Topbar";
 import CustomerDetails from "./CustomerDetails";
 import InventoryItemAdd from "./InventoryItemAdd";
 import LoanSummary from "./LoanSummary";
+
 const SEARCH_TYPES = {
   inventory: "products",
   customers: "customers",
@@ -23,6 +24,7 @@ const Home = () => {
   const [activeComponent, setActiveComponent] = useState("inventory");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [persistedCustomerId, setPersistedCustomerId] = useState("");
   const { fetchCustomers, customers, inventory } = useContext(LoanContext);
 
   const searchType = SEARCH_TYPES[activeComponent] || "products";
@@ -61,7 +63,10 @@ const Home = () => {
 
     const handlerNav = (e) => {
       const component = e?.detail?.component;
+      const cid = e?.detail?.customerId;
+      
       if (component) setActiveComponent(component);
+      if (cid) setPersistedCustomerId(cid);
     };
 
     window.addEventListener('navigateTo', handlerNav);
@@ -77,7 +82,7 @@ const Home = () => {
       case "customers":
         return <AddTheCustomer searchTerm={searchTerm} />;
       case "customer-details":
-        return <CustomerDetails embedded />;
+        return <CustomerDetails embedded targetCustomerId={persistedCustomerId} />;
       case "inventory-item":
         return <InventoryItemAdd embedded />;
       case "loan-summary":
@@ -101,6 +106,7 @@ const Home = () => {
           onSearch={setSearchTerm}
           searchType={searchType}
           showSearch={showSearch}
+          isCollapsed={isCollapsed}
         />
         <div className="flex-1 overflow-auto p-4 md:p-6 relative">
           {/* Dashboard summary - Hide on Loan Summary page */}
