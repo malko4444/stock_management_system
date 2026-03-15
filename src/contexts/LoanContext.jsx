@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useState, useEffect, useRef } from 'react';
-import { customersApi, customerRecordsApi, auditApi } from '../services/firebaseApi';
-import { format } from 'date-fns';
+import { customersApi, customerRecordsApi, auditApi, inventoryApi } from '../services/firebaseApi';
+import { format, subDays, subWeeks, subMonths, subYears, isAfter, startOfDay } from 'date-fns';
 import { toast } from 'react-toastify';
 
 export const LoanContext = createContext();
@@ -15,11 +15,13 @@ export const LoanContext = createContext();
 export default function LoanProvider({ children }) {
   const [customers, setCustomers] = useState([]);
   const [records, setRecords] = useState([]);
+  const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Use refs to store unsubscribe functions to decouple them from the state/re-renders
   const unsubCustomersRef = useRef(null);
   const unsubRecordsRef = useRef(null);
+  const unsubInventoryRef = useRef(null);
   const isInitialFetchDone = useRef(false);
 
   // Fetch all data for current admin in REALTIME
@@ -34,6 +36,7 @@ export default function LoanProvider({ children }) {
     // Clean up old listeners using refs
     if (unsubCustomersRef.current) unsubCustomersRef.current();
     if (unsubRecordsRef.current) unsubRecordsRef.current();
+    if (unsubInventoryRef.current) unsubInventoryRef.current();
 
     try {
       // 1. Customers Listener
@@ -49,6 +52,14 @@ export default function LoanProvider({ children }) {
         setRecords(data);
       });
       unsubRecordsRef.current = uRecs;
+
+      // 3. Inventory Listener
+      if (inventoryApi.listenByAdmin) {
+        const uInv = inventoryApi.listenByAdmin(adminId, (data) => {
+          setInventory(data);
+        });
+        unsubInventoryRef.current = uInv;
+      }
       
       return await customersApi.getByAdmin(adminId);
     } catch (error) {
@@ -69,6 +80,7 @@ export default function LoanProvider({ children }) {
     return () => {
       if (unsubCustomersRef.current) unsubCustomersRef.current();
       if (unsubRecordsRef.current) unsubRecordsRef.current();
+      if (unsubInventoryRef.current) unsubInventoryRef.current();
     };
   }, [fetchCustomers]);
 
@@ -179,7 +191,7 @@ export default function LoanProvider({ children }) {
       if (transactionType === 'product_send') {
         newDues = currentDues + transactionAmount; // ADD for product send
       } else if (transactionType === 'payment_receive') {
-        newDues = Math.max(0, currentDues - transactionAmount); // SUBTRACT for payment (min 0)
+        newDues = currentDues - transactionAmount; // SUBTRACT for payment (can go negative)
       }
 
       // Step 1: Create transaction record with balance information
@@ -196,6 +208,27 @@ export default function LoanProvider({ children }) {
         balance: newDues,
         updated_at: new Date(),
       });
+
+      // Step 2.5: Subtract from Inventory if applicable
+      if (transactionType === 'product_send' && productId) {
+        try {
+          const invItem = await inventoryApi.getById(productId);
+          if (invItem) {
+            const currentQty = Number(invItem.quantity || 0);
+            const soldQty = Number(quantity || 0);
+            const newQty = Math.max(0, currentQty - soldQty);
+            await inventoryApi.updateQuantity(productId, newQty);
+            
+            // Step 2.6: Optimistic Inventory Update
+            setInventory(prev => prev.map(item => 
+              item.id === productId ? { ...item, quantity: newQty } : item
+            ));
+          }
+        } catch (e) {
+          console.error('Failed to update inventory quantity:', e);
+          // Non-blocking but logged
+        }
+      }
 
       // Step 3: Update local state with latest customer data (Optimistic)
       setCustomers(prevCustomers => 
@@ -384,6 +417,120 @@ export default function LoanProvider({ children }) {
     }
   }, []);
 
+  // Delete records by period
+  const deleteCustomerRecordsByPeriod = useCallback(async (adminId, customerId, period) => {
+    try {
+      const customer = customers.find(c => c.id === customerId);
+      if (!customer) throw new Error("Customer not found");
+
+      const now = new Date();
+      let startDate;
+
+      switch (period) {
+        case 'today': startDate = startOfDay(now); break;
+        case 'week': startDate = subWeeks(now, 1); break;
+        case 'month': startDate = subMonths(now, 1); break;
+        case '3months': startDate = subMonths(now, 3); break;
+        case '6months': startDate = subMonths(now, 6); break;
+        case 'year': startDate = subYears(now, 1); break;
+        case 'all': startDate = new Date(0); break;
+        default: throw new Error("Invalid period");
+      }
+
+      const customerRecords = records.filter(r => r.customer_id === customerId);
+      const toDelete = customerRecords.filter(r => {
+        let rDate;
+        if (r.created_at?.toDate) {
+          rDate = r.created_at.toDate();
+        } else if (r.created_at?.seconds) {
+          rDate = new Date(r.created_at.seconds * 1000);
+        } else {
+          rDate = new Date(r.created_at);
+        }
+        
+        return isAfter(rDate, startDate) || format(rDate, 'yyyy-MM-dd') === format(startDate, 'yyyy-MM-dd');
+      });
+
+      if (toDelete.length === 0) {
+        toast.info("No records found for the selected period.");
+        return false;
+      }
+
+      // Calculate balance adjustment
+      let balanceAdjustment = 0;
+      toDelete.forEach(r => {
+        const amt = Number(r.amount || r.total_amount || 0);
+        const isSale = r.type === 'product_send' || r.type === 'purchase' || r.type === 'send';
+        if (isSale) {
+          balanceAdjustment -= amt;
+        } else {
+          balanceAdjustment += amt;
+        }
+      });
+
+      const newBalance = (Number(customer.balance || 0)) + balanceAdjustment;
+
+      // Execute Deletion
+      await customerRecordsApi.deleteMultiple(toDelete.map(r => r.id));
+      
+      // Update Customer Balance
+      await customersApi.update(customerId, { balance: newBalance });
+
+      // Audit Log
+      await auditApi.add({
+        admin_id: adminId,
+        action: 'delete_records_period',
+        message: `Deleted ${toDelete.length} records for ${customer.name} (Period: ${period})`,
+        details: { customerId, period, count: toDelete.length, balanceAdjustment, newBalance }
+      });
+
+      // Optimistic Updates
+      setRecords(prev => prev.filter(r => !toDelete.some(td => td.id === r.id)));
+      setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, balance: newBalance } : c));
+
+      toast.success(`Deleted ${toDelete.length} records successfully!`);
+      return true;
+    } catch (error) {
+      console.error("Error deleting records:", error);
+      toast.error("Failed to delete records.");
+      throw error;
+    }
+  }, [customers, records]);
+
+  // Clear all records for admin
+  const clearAllRecords = useCallback(async (adminId) => {
+    try {
+      setLoading(true);
+      
+      // 1. Delete all records
+      await customerRecordsApi.deleteAllByAdmin(adminId);
+      
+      // 2. Reset all customer balances
+      await customersApi.resetAllBalancesByAdmin(adminId);
+      
+      // 3. Audit log
+      await auditApi.add({
+        admin_id: adminId,
+        action: 'global_reset',
+        message: 'Master Reset: All customer records cleared and balances reset to 0.',
+        details: { timestamp: new Date() }
+      });
+
+      // 4. Update local state
+      setRecords([]);
+      setCustomers(prev => prev.map(c => ({ ...c, balance: 0 })));
+
+      toast.success("Master Reset Complete: All history cleared.");
+      return true;
+    } catch (error) {
+      console.error("Error during master reset:", error);
+      toast.error("Master Reset failed. Please try again.");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const value = {
     customers,
     loading,
@@ -407,6 +554,9 @@ export default function LoanProvider({ children }) {
     getCustomerDues,
     getCustomersWithDues,
     adjustCustomerDues,
+    deleteCustomerRecordsByPeriod,
+    clearAllRecords,
+    inventory,
   };
 
   return (

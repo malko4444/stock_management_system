@@ -22,6 +22,7 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
   const [inventoryItems, setInventoryItems] = useState([]);
   const [itemName, setItemName] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [currentStock, setCurrentStock] = useState(0);
   const [quantity, setQuantity] = useState("");
   const [pricePerUnit, setPricePerUnit] = useState("");
   const [showItemDropdown, setShowItemDropdown] = useState(false);
@@ -31,10 +32,17 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [clearanceDate, setClearanceDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
+  const initialDuesLoaded = useRef(false);
+
   useEffect(() => {
-    if (!isOpen || !customerId) return;
-    const dues = getCustomerDues(customerId);
-    setCurrentDues(dues);
+    if (isOpen && customerId && !initialDuesLoaded.current) {
+      const dues = getCustomerDues(customerId);
+      setCurrentDues(dues);
+      initialDuesLoaded.current = true;
+    }
+    if (!isOpen) {
+      initialDuesLoaded.current = false;
+    }
   }, [isOpen, customerId, getCustomerDues]);
 
   useEffect(() => {
@@ -58,6 +66,7 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
     setDescription("");
     setTransactionDate(format(new Date(), "yyyy-MM-dd"));
     setSelectedProductId("");
+    setCurrentStock(0);
     setQuantity("");
     setPricePerUnit("");
     setPaymentMethod("Cash");
@@ -90,6 +99,7 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
   const selectItem = (item) => {
       setItemName(item.productName || item.name || "");
       setSelectedProductId(item.id);
+      setCurrentStock(Number(item.quantity || 0));
       setPricePerUnit(item.price || "");
       setShowItemDropdown(false);
   };
@@ -114,12 +124,10 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
       if (isAddingDues) {
           if (!itemName || !quantity || !pricePerUnit) {
               toast.error("Please fill in product details completely");
-              setSaving(false); 
               return;
           }
           if (!selectedProductId) {
               toast.error("Please select a valid item from the inventory list");
-              setSaving(false);
               return;
           }
           payload.productId = selectedProductId;
@@ -129,7 +137,6 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
       } else {
           if (!amount || Number(amount) <= 0) {
               toast.error("Please enter a valid amount");
-              setSaving(false); 
               return;
           }
           payload.paymentAmount = Number(amount);
@@ -137,8 +144,7 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
           payload.clearanceDate = clearanceDate;
       }
 
-      const result = await submitTransaction(payload);
-      setCurrentDues(result.newBalance);
+      await submitTransaction(payload);
       toast.success(`Transaction recorded!`);
       onSuccess?.();
       onClose(); 
@@ -176,8 +182,12 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
                 <p className="text-base font-semibold text-gray-900">{customerName}</p>
             </div>
             <div className="text-right">
-                <p className="text-[10px] font-semibold text-[#108587] uppercase tracking-wider">Current Balance</p>
-                <p className="text-xl font-semibold text-gray-900">Rs {currentDues.toLocaleString()}</p>
+                <p className="text-[10px] font-semibold text-[#108587] uppercase tracking-wider">
+                  {currentDues < 0 ? "Advance Balance" : "Current Balance"}
+                </p>
+                <p className={`text-xl font-semibold ${currentDues < 0 ? "text-cyan-600" : "text-gray-900"}`}>
+                  Rs {Math.abs(currentDues).toLocaleString()}
+                </p>
             </div>
           </div>
  
@@ -194,7 +204,7 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
                       : "bg-white border-gray-400 text-gray-400 hover:border-gray-300"
                   }`}
                 >
-                  Dues Added (Sell)
+                  Purchase Added (Sell)
                 </button>
                 <button
                   type="button"
@@ -340,12 +350,22 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
                         </p>
                         <p className="text-xs font-black text-[#108587]">Rs {Number(amount).toLocaleString()}</p>
                      </div>
-                     <div className="flex justify-between items-center">
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">New Balance Projection</p>
-                        <p className={`font-black text-sm ${transactionType === "add_dues" ? "text-red-600" : "text-green-600"}`}>
-                           Rs {(currentDues + (transactionType === "add_dues" ? Number(amount) : -Number(amount))).toLocaleString()}
+                     <div className="flex justify-between items-center mb-1">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">
+                          {(currentDues + (transactionType === "add_dues" ? Number(amount) : -Number(amount))) < 0 ? "Projected Advance" : "New Balance Projection"}
+                        </p>
+                        <p className={`font-black text-sm ${(currentDues + (transactionType === "add_dues" ? Number(amount) : -Number(amount))) < 0 ? "text-cyan-600" : (transactionType === "add_dues" ? "text-red-600" : "text-green-600")}`}>
+                           Rs {Math.abs(currentDues + (transactionType === "add_dues" ? Number(amount) : -Number(amount))).toLocaleString()}
                         </p>
                      </div>
+                     {transactionType === "add_dues" && selectedProductId && (
+                        <div className="flex justify-between items-center border-t border-[#20dbdf]/20 pt-1 mt-1">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Remaining Stock Preview</p>
+                          <p className={`font-black text-sm ${Number(currentStock) - Number(quantity) < 0 ? "text-red-600" : "text-[#108587]"}`}>
+                            {(Number(currentStock) - Number(quantity)).toLocaleString()} Units
+                          </p>
+                        </div>
+                      )}
                    </div>
                 )}
             </div>
@@ -374,7 +394,7 @@ export default function AddRecordModal({ isOpen, onClose, customerId, customerNa
               type="button"
               onClick={handleSave}
               disabled={saving || !amount}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all shadow-md cursor-pointer bg-[#C9FEFF]/70 text-[#108587] hover:bg-[#bdfbfd]/80 border border-[#bdfbfd]/80`}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all shadow-md cursor-pointer bg-gradient-to-br from-[#108587] to-[#14a3a6] text-white hover:bg-[#108587]/80`}
             >
               {saving ? "Processing..." : "Confirm Transaction"}
             </button>

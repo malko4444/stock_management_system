@@ -29,7 +29,6 @@ function InventoryItemAdd({ embedded = false }) {
         setQuantity('');
         setPrice('');
         setUpdatedData(null);
-        setTimeout(() => window.location.reload(), 3000);
     };
 
     const addInventoryItem = async () => {
@@ -62,9 +61,6 @@ function InventoryItemAdd({ embedded = false }) {
                 });
 
                 toast.success('Inventory updated successfully!');
-            }
-            if (inventoryProductsRef.current?.fetchInventory) {
-                await inventoryProductsRef.current.fetchInventory();
             }
             resetForm();
         } catch (error) {

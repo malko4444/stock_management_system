@@ -7,6 +7,7 @@ import { format, subMonths, startOfYear, endOfYear } from "date-fns";
 import { Download, Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import DeleteConfirmationModal from "../components/DeleteConfirmationModal";
 import { customerRecordsApi } from "../services/firebaseApi";
+import DeleteRecordsPeriodModal from "../components/DeleteRecordsPeriodModal";
 
 const Skeleton = ({ className }) => (
   <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
@@ -20,7 +21,7 @@ const FILTER_OPTIONS = [
 ];
 
 export default function CustomerDetails({ embedded = false }) {
-  const { customers, deleteCustomer, getCustomerDues, getCustomerRecords, loading } = useContext(LoanContext);
+  const { customers, deleteCustomer, getCustomerDues, getCustomerRecords, deleteCustomerRecordsByPeriod, loading } = useContext(LoanContext);
   const { setCustomerId } = useContext(customerDataDataContext); // For backwards compatibility if needed
 
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -28,6 +29,8 @@ export default function CustomerDetails({ embedded = false }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDeleteRecordsModal, setShowDeleteRecordsModal] = useState(false);
+  const [isDeletingRecords, setIsDeletingRecords] = useState(false);
   
   // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -216,7 +219,7 @@ export default function CustomerDetails({ embedded = false }) {
       doc.setFontSize(8);
       doc.setTextColor(75, 85, 99);
       doc.setFont("helvetica", "normal");
-      doc.text("TOTAL LOANED", 14 + cardWidth + 9, summaryY + 6);
+      doc.text("TOTAL PURCHASE", 14 + cardWidth + 9, summaryY + 6);
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text(`Rs ${analytics.totalLoaned.toLocaleString()}`, 14 + cardWidth + 9, summaryY + 13);
@@ -299,6 +302,22 @@ export default function CustomerDetails({ embedded = false }) {
     }
   };
 
+  const handleDeleteRecords = async (period) => {
+    if (!selectedCustomerId) return;
+    setIsDeletingRecords(true);
+    try {
+      const success = await deleteCustomerRecordsByPeriod(adminId, selectedCustomerId, period);
+      if (success) {
+        setShowDeleteRecordsModal(false);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete records. Please try again.");
+    } finally {
+      setIsDeletingRecords(false);
+    }
+  };
+
   return (
     <div className={embedded ? "min-h-0" : "min-h-screen bg-gray-50 py-6 px-4"}>
       <div className="max-w-6xl mx-auto space-y-6">
@@ -345,6 +364,16 @@ export default function CustomerDetails({ embedded = false }) {
                 <Download size={16} />
                 <span>Export PDF</span>
               </button>
+              
+              {selectedCustomer && (
+                <button
+                   onClick={() => setShowAddModal(true)}
+                   className="inline-flex items-center gap-2 px-5 py-2 bg-[#108587] text-white rounded-lg hover:bg-[#0e7274] shadow-md shadow-[#108587]/10 transition-all text-xs font-bold active:scale-95 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  <span>New Record</span>
+                </button>
+              )}
             </div>
         </div>
 
@@ -384,7 +413,7 @@ export default function CustomerDetails({ embedded = false }) {
                   {loading ? <Skeleton className="h-5 w-20" /> : <span className="font-semibold text-green-600">Rs {analytics.totalPaid.toLocaleString()}</span>}
                </div>
                <div className="w-full flex justify-between mt-1 text-sm">
-                  <span className="text-gray-500">Total Loaned:</span>
+                  <span className="text-gray-500">Total purchase:</span>
                   {loading ? <Skeleton className="h-5 w-20" /> : <span className="font-semibold text-red-600">Rs {analytics.totalLoaned.toLocaleString()}</span>}
                </div>
                
@@ -404,11 +433,12 @@ export default function CustomerDetails({ embedded = false }) {
                </div>
                
                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="w-full mt-6 py-2.5 bg-[#108587] text-white rounded-lg flex items-center justify-center gap-2 hover:bg-[#0e7274] shadow-lg shadow-[#108587]/20 transition-all font-bold text-sm active:scale-95 cursor-pointer"
+                  disabled={isDeletingRecords}
+                  onClick={() => setShowDeleteRecordsModal(true)}
+                  className="w-full mt-6 py-2 text-red-500 border border-transparent rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-all font-bold text-xs cursor-pointer disabled:opacity-50"
                >
-                 <Plus size={18} />
-                 New Record
+                 <Trash2 size={16} />
+                 {isDeletingRecords ? "Deleting..." : "Delete Records"}
                </button>
                
                <button
@@ -416,7 +446,7 @@ export default function CustomerDetails({ embedded = false }) {
                     setDeletingId(selectedCustomer.id);
                     setShowDeleteModal(true);
                   }}
-                  className="w-full mt-3 py-2 text-red-500 border border-red-50 rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-all font-bold text-xs cursor-pointer"
+                  className="w-full mt-2 py-2 text-red-400 border border-transparent rounded-lg flex items-center justify-center gap-2 hover:bg-red-50 transition-all font-bold text-xs cursor-pointer"
                >
                  <Trash2 size={16} />
                  Delete Account
@@ -538,6 +568,15 @@ export default function CustomerDetails({ embedded = false }) {
         customerId={selectedCustomerId}
         customerName={selectedCustomer?.name}
       />
+
+      {showDeleteRecordsModal && (
+        <DeleteRecordsPeriodModal
+          isOpen={showDeleteRecordsModal}
+          onClose={() => setShowDeleteRecordsModal(false)}
+          onConfirm={handleDeleteRecords}
+          customerName={selectedCustomer?.name}
+        />
+      )}
       
       {showDeleteModal && (
         <DeleteConfirmationModal

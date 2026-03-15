@@ -44,17 +44,16 @@ const CustomerFormFields = ({ formData, errors, handleInputChange }) => (
     </div>
 
     <div className="md:col-span-2">
-      <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Initial Loan / Dues (Rs)</label>
+      <label className="block text-xs font-bold text-[#108587] mb-1 uppercase tracking-tight">Email (Optional)</label>
       <input
-        name="balance"
-        type="number"
-        value={formData.balance}
+        name="email"
+        type="email"
+        value={formData.email}
         onChange={handleInputChange}
-        placeholder="0"
-        className={`w-full p-2 text-sm border rounded-lg ${errors.balance ? 'border-red-500' : 'border-[#20dbdf]'} focus:outline-none focus:ring-2 focus:ring-[#108587]/20 transition-all outline-none`}
+        placeholder="customer@example.com"
+        className={`w-full p-2 text-sm border rounded-lg ${errors.email ? 'border-red-500' : 'border-[#20dbdf]'} focus:outline-none focus:ring-2 focus:ring-[#108587]/20 transition-all outline-none`}
       />
-      {errors.balance && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.balance}</p>}
-      <p className="text-[10px] text-gray-400 mt-1 italic">Leave 0 for a fresh customer.</p>
+      {errors.email && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.email}</p>}
     </div>
   </div>
 );
@@ -147,46 +146,47 @@ const DeleteConfirmationModal = ({
     if (!showDeleteModal) return null;
 
     return (
-    <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setShowDeleteModal(false)} />
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-red-600">Delete Customer</h2>
-            <button
-              onClick={() => setShowDeleteModal(false)}
-              className="text-gray-400 hover:text-gray-600 p-1"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <p className="text-gray-600 mb-6 font-medium">
-            Are you sure you want to delete <span className="text-gray-900 font-bold">{customerToDelete?.name}</span>? 
-            <br/><br/>
-            <span className="text-sm text-red-500">Warning: This cannot be undone and will delete their records.</span>
-          </p>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowDeleteModal(false)}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDeleteConfirm}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
-            >
-              Delete
-            </button>
+      <div 
+        className="fixed inset-0 z-[2000] overflow-y-auto bg-black/40 backdrop-blur-md pointer-events-auto"
+        onClick={() => setShowDeleteModal(false)}
+      >
+        <div className="min-h-full flex items-center justify-center p-4">
+          <div 
+            className="w-full max-w-sm bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-[#E8F8F9] p-8 text-center animate-scale-up pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-[#DC2626] mx-auto mb-6 shadow-sm border border-red-100/50">
+               <Trash2 size={32} strokeWidth={2.5} />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-[#108587]">
+              Delete Customer?
+            </h3>
+            <p className="text-xs font-semibold text-gray-500 mb-8 leading-relaxed">
+              Are you sure you want to delete <span className="text-gray-900 font-bold">{customerToDelete?.name}</span>? 
+              This will permanently remove their profile and all linked records.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleDeleteConfirm}
+                className="w-full py-3.5 bg-gradient-to-br from-[#DC2626] to-[#ef4444] text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-red-500/10 transition-all cursor-pointer active:scale-95 hover:scale-[1.02]"
+              >
+                Yes, Delete Customer
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="w-full py-3.5 bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-slate-100 transition-all cursor-pointer active:scale-95 border border-slate-200/50"
+              >
+                Keep Profile
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </>
-  );
+    );
 };
 
 export default function CustomersList({ searchTerm = '' }) {
-    const [formData, setFormData] = useState({ name: "", phone: "", address: "", balance: "" });
+    const [formData, setFormData] = useState({ name: "", phone: "", address: "", email: "" });
     const [errors, setErrors] = useState({});
     const [showModal, setShowModal] = useState(false);
     const [modalType, setModalType] = useState("add");
@@ -225,7 +225,7 @@ export default function CustomersList({ searchTerm = '' }) {
     }, [searchTerm, customers]);
 
     const resetForm = useCallback(() => {
-        setFormData({ name: "", phone: "", address: "", balance: "" });
+        setFormData({ name: "", phone: "", address: "", email: "" });
         setErrors({});
         setShowModal(false);
         setCurrentCustomerId(null);
@@ -255,12 +255,12 @@ export default function CustomersList({ searchTerm = '' }) {
                 name: formData.name.trim(),
                 phone: formData.phone.trim(),
                 address: formData.address.trim(),
-                balance: Number(formData.balance || 0),
+                email: formData.email.trim(),
                 adminId,
             };
 
             if (modalType === "add") {
-                await customersApi.add({ ...customerData, createdAt: new Date() });
+                await customersApi.add({ ...customerData, balance: 0, createdAt: new Date() });
             } else {
                 await customersApi.update(currentCustomerId, customerData);
             }
@@ -276,7 +276,7 @@ export default function CustomersList({ searchTerm = '' }) {
             name: customer.name,
             phone: customer.phone,
             address: customer.address || "",
-            balance: customer.balance || 0
+            email: customer.email || ""
         });
         setCurrentCustomerId(customer.id);
         setModalType("edit");

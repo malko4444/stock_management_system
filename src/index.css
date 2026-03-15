@@ -76,12 +76,21 @@
       to { transform: rotate(360deg); }
     }
 
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
     .animate-float {
       animation: float 6s ease-in-out infinite;
     }
 
     .animate-rotate-slow {
       animation: rotate-slow 12s linear infinite;
+    }
+
+    .animate-blinker {
+      animation: blink 1.5s ease-in-out infinite;
     }
 
     .glass-card {

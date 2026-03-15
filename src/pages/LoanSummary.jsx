@@ -10,7 +10,12 @@ import {
   Search,
   ArrowRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2,
+  AlertTriangle,
+  X,
+  ChevronDown,
+  Filter
 } from "lucide-react";
 import { format, differenceInDays, subDays, isAfter } from "date-fns";
 
@@ -20,18 +25,65 @@ const Skeleton = ({ className }) => (
   <div className={`animate-pulse bg-gray-200 rounded ${className}`}></div>
 );
 
+// Unified Confirmation Modal for Global Clear
+const GlobalClearConfirmationModal = ({ isOpen, onClose, onConfirm, isDeleting }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[3000] overflow-y-auto bg-black/40 backdrop-blur-md pointer-events-auto" onClick={onClose}>
+      <div className="min-h-full flex items-center justify-center p-4">
+        <div 
+          className="bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-full max-w-sm overflow-hidden relative border border-[#E8F8F9] p-8 text-center pointer-events-auto transform transition-all animate-scale-up"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-[#DC2626] mx-auto mb-6 shadow-sm border border-red-100/50">
+            <Trash2 size={32} strokeWidth={2.5} />
+          </div>
+          <h3 className="text-xl font-bold mb-2 text-[#108587]">Master Reset?</h3>
+          <p className="text-xs font-semibold text-gray-500 mb-8 leading-relaxed">
+            This will <span className="text-red-600 font-bold underline">delete all history records</span> and reset all customer balances to zero. This action is final and cannot be undone.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={onConfirm}
+              disabled={isDeleting}
+              className="w-full py-3.5 bg-gradient-to-br from-[#DC2626] to-[#ef4444] text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-red-500/10 transition-all cursor-pointer active:scale-95 hover:scale-[1.02] disabled:opacity-50"
+            >
+              {isDeleting ? "Clearing Data..." : "Yes, Reset Everything"}
+            </button>
+            <button
+              onClick={onClose}
+              disabled={isDeleting}
+              className="w-full py-3.5 bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-slate-100 transition-all cursor-pointer border border-slate-200/50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function LoanSummary() {
-  const { customers, globalRecords, loading } = useContext(LoanContext);
+  const { customers, globalRecords, loading, clearAllRecords } = useContext(LoanContext);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all"); // all, week, month
+  const [filterType, setFilterType] = useState("all"); // time filter: all, week, month
+  const [txTypeFilter, setTxTypeFilter] = useState("all"); // transaction type: all, purchase, payment
+  const [customerFilter, setCustomerFilter] = useState("all"); // specific customer id
   const [currentPage, setCurrentPage] = useState(1);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const adminId = localStorage.getItem("adminId");
 
-  // Aggregate Statistics
+  // Aggregate Statistics based on FILTERED records
   const stats = useMemo(() => {
     let totalPaid = 0;
     let totalLoaned = 0;
 
+    // Use globalRecords for overall stats, but we might want them restricted to filters?
+    // User requested "necessary filters", usually these stats are for the view.
+    // Let's keep these global for the hero section but filters for the log.
     globalRecords.forEach(record => {
       const amount = Number(record.amount || record.total_amount || 0);
       if (record.type === "product_send" || record.type === "purchase" || record.type === "send") {
@@ -120,7 +172,7 @@ export default function LoanSummary() {
         return { ...r, customerName: c ? c.name : "Unknown" };
     });
 
-    // Time-based Filter
+    // 1. Time-based Filter
     if (filterType === "week") {
         const weekAgo = subDays(now, 7);
         history = history.filter(r => {
@@ -135,7 +187,19 @@ export default function LoanSummary() {
         });
     }
 
-    // Search Filter
+    // 2. Transaction Type Filter
+    if (txTypeFilter === "purchase") {
+        history = history.filter(r => r.type === "product_send" || r.type === "purchase" || r.type === "send");
+    } else if (txTypeFilter === "payment") {
+        history = history.filter(r => r.type === "payment" || r.type === "receive" || r.type === "payment_receive");
+    }
+
+    // 3. Customer Filter
+    if (customerFilter !== "all") {
+        history = history.filter(r => r.customer_id === customerFilter);
+    }
+
+    // 4. Search Filter
     return history.filter(r => 
         r.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (r.product_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -145,7 +209,7 @@ export default function LoanSummary() {
         const db = b.created_at?.toDate ? b.created_at.toDate() : new Date(b.created_at);
         return db - da; 
     });
-  }, [globalRecords, customers, searchTerm, filterType]);
+  }, [globalRecords, customers, searchTerm, filterType, txTypeFilter, customerFilter]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredHistory.length / RECORDS_PER_PAGE);
@@ -157,17 +221,43 @@ export default function LoanSummary() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterType]);
+  }, [searchTerm, filterType, txTypeFilter, customerFilter]);
+
+  const handleGlobalClear = async () => {
+    try {
+      setIsDeleting(true);
+      await clearAllRecords(adminId);
+      setShowClearModal(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-20">
+      <GlobalClearConfirmationModal 
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleGlobalClear}
+        isDeleting={isDeleting}
+      />
+
       {/* Header & Global Stats */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
         <div>
-          <h1 className="text-2xl font-bold text-[#108587] tracking-tight">Loan & Credit Summary</h1>
-          <p className="text-gray-500">Customer records and tranections activities</p>
+          <h1 className="text-2xl font-bold text-[#108587] tracking-tight">Purchase & Credit Summary</h1>
+          <p className="text-gray-500">Customer records and transactions activities</p>
         </div>
         <div className="flex gap-2">
+            <button 
+              onClick={() => setShowClearModal(true)}
+              className="bg-white px-4 py-2 rounded-xl border border-red-100 text-red-500 shadow-sm flex items-center gap-2 text-sm font-bold hover:bg-red-50 transition-all active:scale-95"
+            >
+                <Trash2 size={16} />
+                Clear All 
+            </button>
             <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/60 shadow-sm flex items-center gap-3">
                 <Calendar size={18} className="text-[#108587]" />
                 <span className="text-sm font-semibold text-gray-600">{format(new Date(), "MMMM yyyy")}</span>
@@ -211,7 +301,7 @@ export default function LoanSummary() {
                   <TrendingDown size={24} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Loaned</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total purchase</p>
                   {loading ? <Skeleton className="h-8 w-32 mt-1" /> : <p className="text-2xl font-semibold text-[#108587] tracking-tight">Rs {stats.totalLoaned.toLocaleString()}</p>}
                 </div>
               </div>
@@ -309,6 +399,62 @@ export default function LoanSummary() {
                     className="w-full pl-9 pr-3 py-2 text-sm bg-white/50 border border-white/60 rounded-xl focus:ring-2 focus:ring-[#108587] focus:border-[#108587] transition-all"
                 />
             </div>
+          </div>
+
+          {/* Advanced Filters Row */}
+          <div className="px-5 py-4 bg-slate-50/50 border-b border-white/40 flex flex-wrap gap-4 items-center">
+             <div className="flex items-center gap-2">
+                <Filter size={14} className="text-[#108587]" />
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Filters:</span>
+             </div>
+
+             <div className="flex bg-white rounded-lg border border-white/60 p-0.5 shadow-sm">
+                {[
+                  { id: 'all', label: 'All Types' },
+                  { id: 'purchase', label: 'Purchases' },
+                  { id: 'payment', label: 'Payments' }
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTxTypeFilter(t.id)}
+                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                      txTypeFilter === t.id 
+                        ? 'bg-[#108587] text-white shadow-sm' 
+                        : 'text-gray-500 hover:text-[#108587]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+             </div>
+
+             <div className="relative group min-w-[160px]">
+                <select
+                  value={customerFilter}
+                  onChange={(e) => setCustomerFilter(e.target.value)}
+                  className="w-full appearance-none bg-white border border-white/60 text-xs font-semibold rounded-lg px-3 py-1.5 pr-8 focus:ring-2 focus:ring-[#108587]/20 focus:border-[#108587] transition-all cursor-pointer outline-none shadow-sm"
+                >
+                  <option value="all">All Customers</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+             </div>
+             
+             {(filterType !== 'all' || txTypeFilter !== 'all' || customerFilter !== 'all' || searchTerm) && (
+               <button 
+                 onClick={() => {
+                   setFilterType('all');
+                   setTxTypeFilter('all');
+                   setCustomerFilter('all');
+                   setSearchTerm('');
+                 }}
+                 className="text-[10px] font-bold text-red-500 hover:underline uppercase tracking-wider ml-auto"
+               >
+                 Reset Filters
+               </button>
+             )}
           </div>
           
           <div className="flex-1 overflow-auto scrollbar-thin">

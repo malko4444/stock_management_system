@@ -3,44 +3,29 @@ import { inventoryApi, deletedRecordsApi } from '../services/firebaseApi';
 import { AdminDataContext } from '../pages/AdminContext';
 import { customerDataDataContext } from '../pages/CustomerContext';
 import Card from './Card';
-import { Pencil, CirclePlus } from 'lucide-react';
+import { Pencil, CirclePlus, X } from 'lucide-react';
+import { LoanContext } from '../contexts/LoanContext';
+import { toast } from 'react-toastify';
 
-function InventoryProducts({ onInventoryUpdate, searchTerm }) {
-    const [inventory, setInventory] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [newItem, setNewItem] = useState({ productName: '', quantity: '', price: '', createdAt: new Date() });
-    const [toast, setToast] = useState({ show: false, message: '' });
+function InventoryProducts({ searchTerm }) {
     const { setUpdatedData } = useContext(AdminDataContext);
     const { setInventoryItem } = useContext(customerDataDataContext);
+    const { inventory } = useContext(LoanContext);
+    const [loadingState, setLoadingState] = useState(false);
+    const [showForm, setShowForm] = useState(false);
+    const [newItem, setNewItem] = useState({ productName: '', quantity: '', price: '', createdAt: new Date() });
 
     const adminId = localStorage.getItem("adminId");
-
-    const showToast = (message) => {
-        setToast({ show: true, message });
-        setTimeout(() => setToast({ show: false, message: '' }), 3000);
-    };
 
     const filteredInventory = (typeof searchTerm === 'string' ? inventory.filter(item =>
         item.productName?.toLowerCase().includes(searchTerm.toLowerCase())
     ) : inventory);
 
-    const fetchInventory = async () => {
-        try {
-            const inventoryList = await inventoryApi.getByAdmin(adminId);
-            setInventory(inventoryList);
-            setInventoryItem(inventoryList);
-        } catch (error) {
-            console.error("Error fetching inventory: ", error);
-            showToast('Failed to load inventory');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        fetchInventory();
-    }, []);
+        if (inventory) {
+            setInventoryItem(inventory);
+        }
+    }, [inventory, setInventoryItem]);
 
     const deleteProductFromInventory = async (productId) => {
         try {
@@ -56,13 +41,10 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                 });
             }
             await inventoryApi.delete(productId);
-            const next = inventory.filter((i) => i.id !== productId);
-            setInventory(next);
-            setInventoryItem(next);
-            showToast('Product deleted successfully');
+            toast.success('Product deleted successfully');
         } catch (error) {
             console.error("Error deleting product: ", error);
-            showToast('Failed to delete product');
+            toast.error('Failed to delete product');
         }
     };
 
@@ -74,7 +56,7 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
 
     const handleAddItem = async () => {
         if (!newItem.productName?.trim() || !newItem.quantity) {
-            showToast('Please enter both product name and quantity');
+            toast.error('Please enter both product name and quantity');
             return;
         }
 
@@ -88,38 +70,26 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                     quantity: qty,
                     price: pr,
                 });
-                setInventory((prev) =>
-                    prev.map((i) =>
-                        i.id === newItem.id
-                            ? { ...i, productName: newItem.productName.trim(), quantity: qty, price: pr }
-                            : i
-                    )
-                );
-                showToast('Product updated successfully');
+                toast.success('Product updated successfully');
             } else {
-                const id = await inventoryApi.add({
+                await inventoryApi.add({
                     productName: newItem.productName.trim(),
                     quantity: qty,
                     price: pr,
                     adminId,
                 });
-                setInventory((prev) => [
-                    ...prev,
-                    { id, productName: newItem.productName.trim(), quantity: qty, price: pr, adminId, createdAt: new Date() }
-                ]);
-                showToast('Product added successfully');
+                toast.success('Product added successfully');
             }
             setNewItem({ productName: '', quantity: '', price: '', createdAt: new Date() });
             setShowForm(false);
-            setInventoryItem(await inventoryApi.getByAdmin(adminId));
         } catch (error) {
             console.error("Error adding/updating item: ", error);
-            showToast('Failed to save product');
+            toast.error('Failed to save product');
         }
     };
     
 
-    if (loading) {
+    if (loadingState) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -129,12 +99,6 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
 
     return (
         <div className="min-h-[960px] w-full pb-8 bg-slate-50 flex flex-col">
-            {toast.show && (
-                <div className="fixed z-50 bottom-4 right-4 bg-[#108587] text-white px-4 py-2 rounded-md shadow-lg animate-fade-in">
-                    {toast.message}
-                </div>
-            )}
-
             <div className="flex items-center justify-between p-6">
                 <div>
                     <h2 className="text-[21px] font-bold text-[#108587] tracking-tight">
@@ -157,14 +121,14 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
             {showForm && (
                 <>
                     <div
-                        className="fixed inset-0 bg-black/20 backdrop-blur-md z-40 transition-all duration-300"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-md z-[1000] transition-all duration-300"
                         onClick={() => setShowForm(false)}
                     />
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
+                    <div className="fixed inset-0 flex items-center justify-center z-[1001] p-4 pointer-events-none">
                         <div
-                            className="w-full max-w-md mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-[#E8F8F9] overflow-hidden pointer-events-auto transform transition-all animate-scale-up"
+                            className="w-full max-w-sm mx-auto bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-[#E8F8F9] overflow-hidden pointer-events-auto transform transition-all animate-scale-up"
                         >
-                            <div className="bg-gradient-to-r from-[#108587]/5 to-transparent px-8 py-6 border-b border-gray-100">
+                            <div className="bg-gradient-to-r from-[#108587]/5 to-transparent px-8 py-6 border-b border-gray-100 flex justify-between items-center">
                                 <h3 className="text-xl font-bold flex gap-3 text-[#108587] items-center">
                                     {newItem.id ? (
                                         <>
@@ -182,11 +146,18 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                                         </>
                                     )}
                                 </h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForm(false)}
+                                    className="text-gray-400 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
                             </div>
 
                             <div className="p-8 space-y-5">
                                 <div className="group">
-                                    <h2 className="mb-3 text-[#108587] font-semibold">Product Name *</h2>
+                                    <h2 className="mb-3 text-[10px] font-bold text-[#108587] uppercase tracking-widest">Product Name *</h2>
                                     <input
                                         type="text"
                                         value={newItem.productName}
@@ -199,7 +170,7 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="group">
-                                        <h2 className="mb-3 text-[#108587] font-semibold">Quantity *</h2>
+                                        <h2 className="mb-3 text-[10px] font-bold text-[#108587] uppercase tracking-widest">Quantity *</h2>
                                         <input
                                             type="number"
                                             value={newItem.quantity}
@@ -210,7 +181,7 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                                         />
                                     </div>
                                     <div className="group">
-                                        <h2 className="mb-3 text-[#108587] font-semibold">Price per unit</h2>
+                                        <h2 className="mb-3 text-[10px] font-bold text-[#108587] uppercase tracking-widest">Price per unit</h2>
                                         <input
                                             type="number"
                                             value={newItem.price ?? ''}
@@ -228,13 +199,13 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                                             setShowForm(false);
                                             setNewItem({ productName: '', quantity: '', price: '', createdAt: new Date() });
                                         }}
-                                        className="flex-1 py-3 text-[#DC2626] font-bold text-xs uppercase tracking-widest rounded-xl bg-red-50 hover:bg-red-100 transition-all cursor-pointer active:scale-95"
+                                        className="flex-1 py-3 text-[#DC2626] bg-[#FFE7E7] hover:bg-[#fddada] transition-colors cursor-pointer rounded-lg text-xs font-semibold uppercase tracking-widest"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         onClick={handleAddItem}
-                                        className="flex-2 py-3 bg-gradient-to-br from-[#108587] to-[#14a3a6] text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-[#108587]/10 hover:scale-[1.02] hover:shadow-xl transition-all active:scale-95 cursor-pointer"
+                                        className="flex-2 py-3 bg-gradient-to-br from-[#108587] to-[#14a3a6] text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-[#108587]/10 hover:scale-[1.02] hover:shadow-xl transition-all active:scale-95 cursor-pointer border border-[#14a3a6]/50"
                                     >
                                         {newItem.id ? 'Update' : 'Save'}
                                     </button>
@@ -245,7 +216,7 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                 </>
             )}
 
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 pb-4 px-4">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 pb-4 px-4 overflow-y-auto">
                 {filteredInventory.length > 0 ? (
                     filteredInventory.map((item) => (
                     <Card 
@@ -256,7 +227,7 @@ function InventoryProducts({ onInventoryUpdate, searchTerm }) {
                     />
                     ))
                 ) : (
-                    <div className="col-span-full text-center py-8 text-gray-500">
+                    <div className="col-span-full text-center py-8 text-gray-500 font-medium">
                     {searchTerm ? 'No products match your search' : 'No products available'}
                     </div>
                 )}

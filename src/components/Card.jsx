@@ -121,42 +121,43 @@ const Card = ({ item, onEdit, onDelete }) => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <>
-          <div 
-            className="fixed inset-0 bg-transparent bg-opacity-10 backdrop-blur-sm z-40"
-            onClick={cancelDelete}
-          />
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 z-[2000] overflow-y-auto bg-black/40 backdrop-blur-md pointer-events-auto"
+          onClick={cancelDelete}
+        >
+          <div className="min-h-full flex items-center justify-center p-4">
             <div 
-              className="w-full max-w-sm mx-auto p-8 glass-card rounded-2xl shadow-2xl border border-white/60 animate-scale-up text-center"
+              className="w-full max-w-sm bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-[#E8F8F9] p-8 text-center animate-scale-up pointer-events-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-600 mx-auto mb-6 shadow-inner">
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-[#DC2626] mx-auto mb-6 shadow-sm border border-red-100/50">
                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                  </svg>
               </div>
-              <h3 className="text-2xl font-bold mb-2 text-slate-800">
+              <h3 className="text-xl font-bold mb-2 text-[#108587]">
                 Are you sure?
               </h3>
-              <p className="text-gray-500 font-medium mb-8">This action cannot be undone. This product will be removed from your active stock.</p>
+              <p className="text-xs font-semibold text-gray-500 mb-8 leading-relaxed">
+                This action cannot be undone. This product will be permanently removed from your active stock logs.
+              </p>
               <div className="flex flex-col gap-3">
                 <button
                   onClick={confirmDelete}
-                  className="w-full py-3 bg-[#FFE7E7] text-[#DC2626] font-bold rounded-xl hover:bg-[#fddada] transition-all cursor-pointer active:scale-95 shadow-sm shadow-red-100/50"
+                  className="w-full py-3.5 bg-gradient-to-br from-[#DC2626] to-[#ef4444] text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg shadow-red-500/10 transition-all cursor-pointer active:scale-95 hover:scale-[1.02]"
                 >
                   Yes, Remove Item
                 </button>
                 <button
                   onClick={cancelDelete}
-                  className="w-full py-3 bg-[#C9FEFF] text-[#108587] font-bold rounded-xl hover:bg-[#bdfbfd] transition-all cursor-pointer active:scale-95"
+                  className="w-full py-3.5 bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-slate-100 transition-all cursor-pointer active:scale-95 border border-slate-200/50"
                 >
                   Keep Product
                 </button>
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </>
   );

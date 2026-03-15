@@ -85,6 +85,21 @@ export const customersApi = {
       callback(customers);
     });
   },
+
+  resetAllBalancesByAdmin: async (adminId) => {
+    const q = query(
+      collection(db, "customers"),
+      where("adminId", "==", adminId)
+    );
+    const snap = await getDocs(q);
+    const batchSize = 500;
+    const docs = snap.docs;
+    
+    for (let i = 0; i < docs.length; i += batchSize) {
+      const chunk = docs.slice(i, i + batchSize);
+      await Promise.all(chunk.map(d => updateDoc(d.ref, { balance: 0, updatedAt: new Date() })));
+    }
+  },
 };
 
 // ---------- Customer Records (send product / receive payment) ----------
@@ -141,6 +156,25 @@ export const customerRecordsApi = {
       callback(records);
     });
   },
+
+  deleteMultiple: async (recordIds) => {
+    await Promise.all(recordIds.map(id => deleteDoc(doc(db, "customerRecord", id))));
+  },
+
+  deleteAllByAdmin: async (adminId) => {
+    const q = query(
+      collection(db, "customerRecord"),
+      where("admin_id", "==", adminId)
+    );
+    const snap = await getDocs(q);
+    const batchSize = 500;
+    const docs = snap.docs;
+    
+    for (let i = 0; i < docs.length; i += batchSize) {
+      const chunk = docs.slice(i, i + batchSize);
+      await Promise.all(chunk.map(d => deleteDoc(d.ref)));
+    }
+  }
 };
 
 // ---------- Inventory ----------
@@ -193,6 +227,25 @@ export const inventoryApi = {
   getById: async (id) => {
     const d = await getDoc(doc(db, "inventory", id));
     return d.exists() ? { id: d.id, ...d.data() } : null;
+  },
+
+  listenByAdmin: (adminId, callback) => {
+    const q = query(
+      collection(db, "inventory"),
+      where("adminId", "==", adminId)
+    );
+    return onSnapshot(q, (snap) => {
+      const items = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date(),
+          price: data.price != null ? Number(data.price) : 0,
+        };
+      });
+      callback(items);
+    });
   },
 };
 

@@ -23,7 +23,7 @@ const Home = () => {
   const [activeComponent, setActiveComponent] = useState("inventory");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const { fetchCustomers, getCustomersWithDues } = useContext(LoanContext);
+  const { fetchCustomers, customers, inventory } = useContext(LoanContext);
 
   const searchType = SEARCH_TYPES[activeComponent] || "products";
   const showSearch = ["inventory", "customers", "inventory-item"].includes(activeComponent);
@@ -31,30 +31,33 @@ const Home = () => {
   const [dashboard, setDashboard] = useState(null);
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      const adminId = localStorage.getItem('adminId');
-      if (!adminId) return;
-      try {
-        const [customersData, inventoryData] = await Promise.all([
-          fetchCustomers(adminId),
-          inventoryApi.getByAdmin(adminId)
-        ]);
-        
-        const totalDues = customersData.reduce((sum, c) => sum + (Number(c.balance) || 0), 0);
-        const totalItemsValue = inventoryData.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price || 0)), 0);
-        const totalStock = inventoryData.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const adminId = localStorage.getItem('adminId');
+    if (!adminId) return;
 
-        setDashboard({
-          totalCustomers: customersData.length,
-          totalDues,
-          totalStock,
-          totalItemsValue
-        });
-      } catch (e) {
-        console.error('Error fetching dashboard:', e);
-      }
-    };
-    fetchDashboard();
+    const customersData = customers || [];
+    const inventoryData = inventory || [];
+    
+    const totalReceivables = customersData.reduce((sum, c) => sum + Math.max(0, Number(c.balance) || 0), 0);
+    const totalAdvance = customersData.reduce((sum, c) => sum + Math.abs(Math.min(0, Number(c.balance) || 0)), 0);
+    const totalItemsValue = inventoryData.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.price || 0)), 0);
+    const totalStock = inventoryData.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const outOfStockCount = inventoryData.filter(item => Number(item.quantity || 0) === 0).length;
+
+    setDashboard({
+      totalCustomers: customersData.length,
+      totalReceivables,
+      totalAdvance,
+      totalStock,
+      outOfStockCount,
+      totalItemsValue
+    });
+  }, [customers, inventory]);
+
+  useEffect(() => {
+    const adminId = localStorage.getItem('adminId');
+    if (adminId) {
+      fetchCustomers(adminId);
+    }
 
     const handlerNav = (e) => {
       const component = e?.detail?.component;
@@ -121,13 +124,16 @@ const Home = () => {
                       </div>
                       <span className="px-2 py-1 rounded-full bg-emerald-50 text-[#108587] text-[8px] font-bold uppercase tracking-wider">Active Partners</span>
                     </div>
-                    <div className="relative">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Total Profiles</p>
+                    <div className="h-[60px] flex flex-col justify-end">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-blinker" />
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Total Profiles</p>
+                      </div>
                       <div className="flex items-baseline gap-2">
-                        <h3 className="text-4xl font-bold text-[#108587] tracking-tight">
+                        <h3 className="text-3xl font-bold text-[#108587] tracking-tight">
                           {dashboard ? dashboard.totalCustomers : "..."}
                         </h3>
-                        <span className="text-xs font-medium text-[#108587]/60">Verified</span>
+                        <span className="text-[10px] font-medium text-[#108587]/60">Verified</span>
                       </div>
                     </div>
                   </div>
@@ -140,20 +146,47 @@ const Home = () => {
                     <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
                        <Wallet size={100} />
                     </div>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-4">
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#108587] to-[#14a3a6] flex items-center justify-center text-white shadow-md shadow-[#108587]/10 transition-transform duration-500">
                         <Wallet size={24} className="stroke-[2px]" />
                       </div>
-                      <span className="px-2 py-1 rounded-full bg-emerald-50 text-[#108587] text-[8px] font-bold uppercase tracking-wider">Receivables</span>
+                      <span className="px-2 py-1 rounded-full bg-emerald-50 text-[#108587] text-[8px] font-bold uppercase tracking-wider">Account Status</span>
                     </div>
-                    <div className="relative">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Total Balance</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-lg font-semibold text-[#108587]">Rs</span>
-                        <h3 className="text-3xl font-bold text-[#108587] tracking-tight">
-                          {dashboard ? dashboard.totalDues.toLocaleString('en-PK') : "..."}
-                        </h3>
-                      </div>
+                    
+                    <div className="flex items-end justify-between gap-4 h-[60px]">
+                      {(dashboard?.totalAdvance > 0 || (!dashboard?.totalAdvance && !dashboard?.totalReceivables)) && (
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            {dashboard?.totalAdvance > 0 && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-blinker" />}
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                                Net Advance
+                            </p>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-sm font-semibold text-[#108587]">Rs</span>
+                            <h3 className="text-xl font-bold text-[#108587] tracking-tight truncate">
+                              {(dashboard?.totalAdvance || 0).toLocaleString('en-PK')}
+                            </h3>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {dashboard?.totalReceivables > 0 && (
+                        <div className="flex-1 border-l border-gray-100 pl-4">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-blinker" />
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                                Receivables
+                            </p>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-sm font-semibold text-red-600">Rs</span>
+                            <h3 className="text-xl font-bold text-red-600 tracking-tight truncate">
+                              {dashboard.totalReceivables.toLocaleString('en-PK')}
+                            </h3>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -165,20 +198,42 @@ const Home = () => {
                     <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
                        <Box size={100} />
                     </div>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-between mb-4">
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#108587] to-[#14a3a6] flex items-center justify-center text-white shadow-md shadow-[#108587]/10 transition-transform duration-500">
                         <Box size={24} className="stroke-[2px]" />
                       </div>
                       <span className="px-2 py-1 rounded-full bg-emerald-50 text-[#108587] text-[8px] font-bold uppercase tracking-wider">Inventory</span>
                     </div>
-                    <div className="relative">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Current Stock</p>
-                      <div className="flex items-baseline gap-2">
-                        <h3 className="text-4xl font-bold text-[#108587] tracking-tight">
-                          {dashboard ? dashboard.totalStock : "..."}
-                        </h3>
-                        <span className="text-xs font-medium text-[#108587]/60 text-nowrap">Units on Hand</span>
+                    <div className="h-[60px] flex items-end justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-blinker" />
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Current Stock</p>
+                        </div>
+                        <div className="flex items-baseline gap-1">
+                          <h3 className="text-xl font-bold text-[#108587] tracking-tight">
+                            {dashboard ? dashboard.totalStock.toLocaleString() : "..."}
+                          </h3>
+                          <span className="text-[10px] font-medium text-[#108587]/60 text-nowrap">Units</span>
+                        </div>
                       </div>
+
+                      {dashboard?.outOfStockCount > 0 && (
+                        <div className="flex-1 border-l border-gray-100 pl-4">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-blinker" />
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                                Out of Stock
+                            </p>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <h3 className="text-xl font-bold text-red-600 tracking-tight">
+                              {dashboard.outOfStockCount}
+                            </h3>
+                            <span className="text-[10px] font-medium text-red-600/60 text-nowrap">Items</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

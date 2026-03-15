@@ -23,7 +23,7 @@ const menuItems = [
     icon: <Users size={20} />,
     component: "customers",
     subItems: [
-      { name: "Loan Summary", icon: <TrendingUp size={20} />, component: "loan-summary" },
+      { name: "Purchase Summary", icon: <TrendingUp size={20} />, component: "loan-summary" },
     ],
   },
 ];
