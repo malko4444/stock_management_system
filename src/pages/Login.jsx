@@ -1,65 +1,72 @@
-import React, { useEffect, useState } from "react";
-import { auth } from "../../firebaseConfig";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import React, { useEffect, useState, useContext } from "react";
+import { authApi, userProfileApi } from "../services/firebaseApi";
 import { Link, useNavigate } from "react-router-dom";
+import navIcon from "../assets/img/navIcon.png";
+import { LoanContext } from "../contexts/LoanContext";
 
 function Login() {
-
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  useEffect(()=>{
-    const userId = localStorage.getItem('adminId')
-    
-    if(userId){
-      navigate("/home")
-    }
-  },[])
+  const { user, authLoading } = useContext(LoanContext);
+
+  useEffect(() => {
+    if (!authLoading && user) navigate("/home");
+  }, [user, authLoading, navigate]);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
-      console.log("Login successful:", userCredential.user.uid);
-      localStorage.setItem("adminId", userCredential.user.uid);
-      navigate("/home"); // Redirect to dashboard after successful login
-    } catch (error) {
-      console.error("Login error:", error);
+      const userCredential = await authApi.signIn(formData.email, formData.password);
+      const uid = userCredential.user.uid;
+      const email = userCredential.user.email || "";
+      let profile = await userProfileApi.get(uid);
+      if (!profile) {
+        await userProfileApi.set(uid, { email, displayName: email.split("@")[0] || "User" });
+      }
+      navigate("/home");
+    } catch (err) {
+      console.error("Login error:", err);
       setError("Invalid email or password");
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md sm:max-w-lg lg:max-w-xl bg-white p-8 shadow-md rounded-lg">
+<>
+     <nav className="bg-white flex justify-center px-4 sm:px-6 lg:px-8 border-b border-gray-200 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <img className="h-8 w-8" src={navIcon} alt="Logo" />
+          <span className="text-2xl font-bold text-[#108587] leading-tight">Stockease</span>
+        </div>
+      </nav>
+    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="w-full max-w-sm bg-white p-8 shadow-xl rounded-2xl border border-[#E8F8F9]">
         {/* Title */}
-        <h2 className="text-center text-3xl font-bold text-gray-900">Sign in to your account</h2>
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-black text-[#108587]">Welcome Back</h2>
+          <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-widest font-bold">Access your dashboard</p>
+        </div>
 
         {/* Error Message */}
         {error && (
-          <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="mb-6 bg-red-50 border border-red-100 text-red-600 px-4 py-2 rounded-xl text-[10px] font-bold text-center">
             {error}
           </div>
         )}
 
         {/* Form */}
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <form autoComplete="off" className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email address
+            <label 
+              htmlFor="email" 
+              className="block text-[10px] font-bold text-[#108587] uppercase tracking-tight mb-1 px-1"
+            >
+              Email Address
             </label>
             <input
               type="email"
@@ -67,12 +74,16 @@ function Login() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="example@stockease.com"
+              className="block w-full px-4 py-2 text-sm border border-[#20dbdf] rounded-lg focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label 
+              htmlFor="password" 
+              className="block text-[10px] font-bold text-[#108587] uppercase tracking-tight mb-1 px-1"
+            >
               Password
             </label>
             <input
@@ -81,31 +92,31 @@ function Login() {
               value={formData.password}
               onChange={handleChange}
               required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="••••••••"
+              className="block w-full px-4 py-2 text-sm border border-[#20dbdf] rounded-lg focus:ring-4 focus:ring-[#108587]/10 focus:border-[#108587] transition-all outline-none"
             />
           </div>
 
-          
-
-          <div>
+          <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="cursor-pointer w-full py-3 px-4 border border-transparent rounded-lg shadow-lg shadow-[#108587]/20 text-sm font-black text-white bg-[#108587] hover:bg-[#0c7c6b] transition-all active:scale-[0.98]"
             >
-              Sign in
+              Log in to Account
             </button>
           </div>
         </form>
 
         {/* Signup Link */}
-        <div className="mt-4 text-center text-sm text-gray-600">
+        <div className="mt-8 text-center text-[10px] text-gray-400 font-bold uppercase tracking-tight">
           New here?{" "}
-          <Link to="/signup" className="font-medium text-blue-600 hover:underline">
-            Sign up here
+          <Link to="/signup" className="text-[#108587] hover:underline ml-1">
+            Create an account
           </Link>
         </div>
       </div>
     </div>
+</>
   );
 }
 
