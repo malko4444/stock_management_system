@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "5cey9Lg2ehM=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Zubair QA\\Downloads\\zubair QA\\New folder\\stock_management_system\\scanner-bridge\\native\\ScannerHelper.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Zubair QA\\.nuget\\packages\\dahomey.cbor\\1.16.1\\dahomey.cbor.1.16.1.nupkg.sha512",
+    "C:\\Users\\Zubair QA\\.nuget\\packages\\microsoft.netcore.platforms\\5.0.0\\microsoft.netcore.platforms.5.0.0.nupkg.sha512",
+    "C:\\Users\\Zubair QA\\.nuget\\packages\\sixlabors.imagesharp\\2.1.3\\sixlabors.imagesharp.2.1.3.nupkg.sha512",
+    "C:\\Users\\Zubair QA\\.nuget\\packages\\sourceafis\\3.14.0\\sourceafis.3.14.0.nupkg.sha512",
+    "C:\\Users\\Zubair QA\\.nuget\\packages\\system.io.pipelines\\6.0.1\\system.io.pipelines.6.0.1.nupkg.sha512",
+    "C:\\Users\\Zubair QA\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\5.0.0\\system.runtime.compilerservices.unsafe.5.0.0.nupkg.sha512",
+    "C:\\Users\\Zubair QA\\.nuget\\packages\\system.text.encoding.codepages\\5.0.0\\system.text.encoding.codepages.5.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

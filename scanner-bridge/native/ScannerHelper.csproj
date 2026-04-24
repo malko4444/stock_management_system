@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ScannerHelper</RootNamespace>
+    <AssemblyName>ScannerHelper</AssemblyName>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Open-source fingerprint matching. Works with any scanner that
+         produces a grayscale image. No vendor SDK required. -->
+    <PackageReference Include="SourceAFIS" Version="3.14.0" />
+  </ItemGroup>
+</Project>

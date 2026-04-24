@@ -1,18 +1,12 @@
-import React, { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
-import { AdminDataContext } from './AdminContext';
+import React from "react";
+import { Navigate } from "react-router-dom";
 
 function AdminProtectedWrapper({ children }) {
-    const adminId = localStorage.getItem('adminId');
-    
-    // Check if admin is authenticated
-    if (!adminId) {
-        // Redirect to login if not authenticated
-        return <Navigate to="/login" replace />;
-    }
-    
-    // Render children if authenticated
-    return children;
+  const adminId = localStorage.getItem("adminId");
+  if (!adminId) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
 }
 
 export default AdminProtectedWrapper;

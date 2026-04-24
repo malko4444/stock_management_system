@@ -6,14 +6,24 @@ import {
   LayoutDashboard,
   Package,
   Users,
+  UserCog,
+  ClipboardList,
+  Calculator,
+  KeyRound,
   LogOut,
   Boxes,
+  CalendarDays,
 } from "lucide-react";
 
 const links = [
   { to: "/home", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inventoryItem", label: "Inventory", icon: Package },
   { to: "/details", label: "Customers", icon: Users },
+  { to: "/employees", label: "Employees", icon: UserCog },
+  { to: "/kiosk", label: "Kiosk", icon: KeyRound },
+  { to: "/attendance", label: "Log", icon: ClipboardList },
+  { to: "/employee-attendance", label: "By employee", icon: CalendarDays },
+  { to: "/payroll", label: "Payroll", icon: Calculator },
 ];
 
 export const NavBar = () => {
@@ -27,7 +37,7 @@ export const NavBar = () => {
 
   const linkClasses = ({ isActive }) =>
     [
-      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
       isActive
         ? "bg-indigo-50 text-indigo-700"
         : "text-slate-600 hover:text-slate-900 hover:bg-slate-100",
@@ -36,8 +46,8 @@ export const NavBar = () => {
   return (
     <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="h-16 flex items-center justify-between">
-          <Link to="/home" className="flex items-center gap-2">
+        <div className="h-16 flex items-center justify-between gap-4">
+          <Link to="/home" className="flex items-center gap-2 flex-shrink-0">
             <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white grid place-items-center shadow-sm">
               <Boxes size={20} />
             </div>
@@ -47,7 +57,7 @@ export const NavBar = () => {
             </div>
           </Link>
 
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-1 overflow-x-auto">
             {links.map(({ to, label, icon: Icon }) => (
               <NavLink key={to} to={to} className={linkClasses}>
                 <Icon size={16} />
@@ -56,7 +66,7 @@ export const NavBar = () => {
             ))}
           </div>
 
-          <div className="hidden md:flex items-center">
+          <div className="hidden xl:flex items-center flex-shrink-0">
             <button
               onClick={logOutUser}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
@@ -67,7 +77,7 @@ export const NavBar = () => {
           </div>
 
           <button
-            className="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+            className="xl:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:bg-slate-100"
             onClick={() => setIsOpen(!isOpen)}
             aria-label="Toggle menu"
           >
@@ -76,7 +86,7 @@ export const NavBar = () => {
         </div>
 
         {isOpen && (
-          <div className="md:hidden pb-4 animate-fade-in">
+          <div className="xl:hidden pb-4 animate-fade-in">
             <div className="flex flex-col gap-1">
               {links.map(({ to, label, icon: Icon }) => (
                 <NavLink
