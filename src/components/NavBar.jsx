@@ -1,64 +1,104 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react"; // Icon library for menu
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  Package,
+  Users,
+  LogOut,
+  Boxes,
+} from "lucide-react";
+
+const links = [
+  { to: "/home", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/inventoryItem", label: "Inventory", icon: Package },
+  { to: "/details", label: "Customers", icon: Users },
+];
 
 export const NavBar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const logOutUser = () => {
     localStorage.removeItem("adminId");
-    window.location.reload();
+    navigate("/login");
   };
 
+  const linkClasses = ({ isActive }) =>
+    [
+      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+      isActive
+        ? "bg-indigo-50 text-indigo-700"
+        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100",
+    ].join(" ");
+
   return (
-    <nav className="bg-blue-500 shadow-md rounded-lg p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        {/* Logo */}
-        <h1 className="text-white text-lg font-bold">Stock Management</h1>
+    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="h-16 flex items-center justify-between">
+          <Link to="/home" className="flex items-center gap-2">
+            <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white grid place-items-center shadow-sm">
+              <Boxes size={20} />
+            </div>
+            <div className="leading-tight">
+              <div className="text-sm font-semibold text-slate-900">Stock Manager</div>
+              <div className="text-[11px] text-slate-500">Plastic Factory</div>
+            </div>
+          </Link>
 
-        {/* Hamburger Menu (Mobile) */}
-        <button
-          className="md:hidden text-white focus:outline-none"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+          <div className="hidden md:flex items-center gap-1">
+            {links.map(({ to, label, icon: Icon }) => (
+              <NavLink key={to} to={to} className={linkClasses}>
+                <Icon size={16} />
+                {label}
+              </NavLink>
+            ))}
+          </div>
 
-        {/* Navigation Links */}
-        <ul
-          className={`md:flex items-center space-x-6 ${
-            isOpen ? "block" : "hidden"
-          } md:flex-row md:space-x-6 absolute md:static bg-blue-500 w-full left-0 md:w-auto md:bg-transparent top-[60px] md:top-auto md:p-0 p-4`}
-        >
-          <li>
-            <Link to="/home" className="text-white font-semibold hover:text-gray-300">
-              Home
-            </Link>
-          </li>
-          {/* <li>
-            <Link to="/details" className="text-white font-semibold hover:text-gray-300">
-              Customers
-            </Link>
-          </li> */}
-          <li>
-            <Link to="/inventoryItem" className="text-white font-semibold hover:text-gray-300">
-              Inventory
-            </Link>
-          </li>
-          <li>
-            <Link to="/details" className="text-white font-semibold hover:text-gray-300">
-              Customer Details
-            </Link>
-          </li>
-          <li>
+          <div className="hidden md:flex items-center">
             <button
               onClick={logOutUser}
-              className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-md"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
             >
+              <LogOut size={16} />
               Logout
             </button>
-          </li>
-        </ul>
+          </div>
+
+          <button
+            className="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label="Toggle menu"
+          >
+            {isOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+
+        {isOpen && (
+          <div className="md:hidden pb-4 animate-fade-in">
+            <div className="flex flex-col gap-1">
+              {links.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={linkClasses}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Icon size={16} />
+                  {label}
+                </NavLink>
+              ))}
+              <button
+                onClick={logOutUser}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

@@ -1,71 +1,75 @@
-import React, { useContext, useState } from 'react'
-import Send from '../components/Send'
-import Receive from '../components/Receive'
-import { customerDataDataContext } from './CustomerContext';
-import InventoryProducts from '../components/InventoryProducts';
-import { NavBar } from '../components/NavBar';
+import React, { useContext, useRef, useState } from "react";
+import Send from "../components/Send";
+import Receive from "../components/Receive";
+import { customerDataDataContext } from "./CustomerContext";
+import InventoryProducts from "../components/InventoryProducts";
+import { NavBar } from "../components/NavBar";
+import { PackageOpen, Wallet, User } from "lucide-react";
 
 function AddCustomerRecord() {
-    const { customerData, customerId } = useContext(customerDataDataContext);
-    const [activeComponent, setActiveComponent] = useState('send'); // Default to 'send'
+  const { customerData, customerId } = useContext(customerDataDataContext);
+  const [tab, setTab] = useState("send");
+  const inventoryRef = useRef(null);
 
-    return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-8 px-4">
-          <NavBar/>
-            <div className="max-w-4xl mx-auto">
-                <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                        Transaction Type
-                    </h2>
-                    
-                    {/* Styled dropdown */}
-                    <div className="relative w-full md:w-64 mx-auto">
-                        <select
-                            value={activeComponent}
-                            onChange={(e) => setActiveComponent(e.target.value)}
-                            className="block appearance-none w-full bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 pr-8 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                            <option value="send">Send Product</option>
-                            <option value="receive">Receive Payment</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
+  const selectedCustomer = Array.isArray(customerData)
+    ? customerData.find((c) => c.id === customerId)
+    : null;
 
-                {/* Component container with animation */}
-                <div className="transition-all duration-300 ease-in-out">
-                    <div className="bg-white rounded-lg shadow-lg p-6">
-                        {activeComponent === 'send' ? (
-                            <div className="animate-fade-in">
-                                <h3 className="text-xl font-semibold mb-4 text-gray-800">Send Product</h3>
-                                <Send />
-                            </div>
-                        ) : (
-                            <div className="animate-fade-in">
-                                <h3 className="text-xl font-semibold mb-4 text-gray-800">Receive Payment</h3>
-                                <Receive />
-                            </div>
-                        )}
-                    </div>
-                </div>
+  const refreshInventory = () => {
+    inventoryRef.current?.fetchInventory?.();
+  };
 
-                {/* Customer Info Card */}
-                {customerData && customerId && (
-                    <div className="mt-6 bg-blue-50 rounded-lg shadow p-4">
-                        <h4 className="text-lg font-medium text-blue-900 mb-2">Selected Customer</h4>
-                        <p className="text-blue-800">
-                            Name: {customerData.find(c => c.id === customerId)?.name}
-                        </p>
-                    </div>
-                )}
-            </div>
-            <InventoryProducts/>
+  const tabClasses = (active) =>
+    [
+      "flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors",
+      active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700",
+    ].join(" ");
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <NavBar />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900">New transaction</h1>
+          <p className="text-sm text-slate-500 mt-1">Send a product or record an incoming payment</p>
         </div>
-    )
+
+        {selectedCustomer && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 grid place-items-center">
+              <User size={18} />
+            </div>
+            <div>
+              <div className="text-xs text-slate-500">Customer</div>
+              <div className="font-semibold text-slate-900">{selectedCustomer.name}</div>
+              {selectedCustomer.phone && (
+                <div className="text-xs text-slate-500">{selectedCustomer.phone}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+          <div className="bg-slate-100 p-1 rounded-xl flex gap-1 mb-6 max-w-sm">
+            <button onClick={() => setTab("send")} className={tabClasses(tab === "send")} type="button">
+              <PackageOpen size={14} />
+              Send product
+            </button>
+            <button onClick={() => setTab("receive")} className={tabClasses(tab === "receive")} type="button">
+              <Wallet size={14} />
+              Receive payment
+            </button>
+          </div>
+
+          <div className="animate-fade-in">
+            {tab === "send" ? <Send onComplete={refreshInventory} /> : <Receive />}
+          </div>
+        </div>
+
+        <InventoryProducts ref={inventoryRef} />
+      </div>
+    </div>
+  );
 }
 
-export default AddCustomerRecord
+export default AddCustomerRecord;
